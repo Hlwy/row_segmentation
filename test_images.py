@@ -36,25 +36,28 @@ from utils import line_utils as lut
 
 def update(img):
 	global plt
-	vhist = sut.vertical_hist(img)
-	hist = sut.histogram_sliding_filter(vhist)
-	plt.plot(range(hist.shape[0]), hist[:,0])
-	plt.plot(range(hist.shape[0]), hist[:,1])
-	plt.plot(range(hist.shape[0]), hist[:,2])
-	minypix = sut.find_horizon_simple(hist[:,1])
-
-	clipped = sut.crop_below_pixel(img, minypix)
-	white = np.ones((clipped.shape[0], clipped.shape[1],3), dtype=np.uint8)*255
-	black = np.zeros((minypix, clipped.shape[1],3), dtype=np.uint8)
-	mask = np.vstack((black,white))
-	mask = cv2.cvtColor(mask,cv2.COLOR_BGR2GRAY)
-	normImg = cv2.bitwise_and(img,img,mask = mask)
-
-	# display = ut.update_zhong(normImg,0, 45.0,0.0,0.0,640.0,525.0)
-	display = lut.update_zhong(normImg,0, 53.0,0.0,0.0,555.0,577.0)
-
-	cv2.imshow("Clipped Lines", display)
+	# vhist = sut.vertical_hist(img)
+	# hist = sut.histogram_sliding_filter(vhist)
+	# plt.plot(range(hist.shape[0]), hist[:,0])
+	# plt.plot(range(hist.shape[0]), hist[:,1])
+	# plt.plot(range(hist.shape[0]), hist[:,2])
+	# minypix = sut.find_horizon_simple(hist[:,1])
+	#
+	# clipped = sut.crop_below_pixel(img, minypix)
+	# white = np.ones((clipped.shape[0], clipped.shape[1],3), dtype=np.uint8)*255
+	# black = np.zeros((minypix, clipped.shape[1],3), dtype=np.uint8)
+	# mask = np.vstack((black,white))
+	# mask = cv2.cvtColor(mask,cv2.COLOR_BGR2GRAY)
+	# normImg = cv2.bitwise_and(img,img,mask = mask)
+	#
+	# # display = ut.update_zhong(normImg,0, 45.0,0.0,0.0,640.0,525.0)
+	# display = lut.update_zhong(normImg,0, 53.0,0.0,0.0,555.0,577.0)
+	#
+	# cv2.imshow("Clipped Lines", display)
 	# cv2.imshow("Normalized Image", normImg)
+
+	horizon_fit, horizon_inds, display = sut.find_horizon(img)
+
 	return display
 
 
@@ -107,7 +110,7 @@ if __name__ == "__main__" :
 	# create trackbars for color change
 	cv2.namedWindow('image')
 	plt.ion()
-	plt.figure()
+	# plt.figure()
 
 	cur_img = cv2.resize(img, (640,480))
 	clone = cv2.resize(img, (640,480))
@@ -134,21 +137,23 @@ if __name__ == "__main__" :
 				i = 0
 			print 'Next Image...'
 			new_img = np.copy(_imgs[i])
+			sut.test_img_row(new_img)
 			clone = cv2.resize(new_img, (640,480))
-			plt.clf()
-			filtered_img, _ = update_filter(clone,True)
-			# filtered_img, _ = update_filter(clone)
+			# plt.clf()
+			# filtered_img, _ = update_filter(clone,True)
+			filtered_img, _ = update_filter(clone)
 			# post_img = update(filtered_img)
 		if key == ord('o'):
 			i = i - 1
-			if i <= 0:
+			if i < 0:
 				i = n - 1
 			print 'Previous Image...'
 			new_img = np.copy(_imgs[i])
+			sut.test_img_row(new_img)
 			clone = cv2.resize(new_img, (640,480))
-			plt.clf()
-			filtered_img, _ = update_filter(clone,True)
-			# filtered_img, _ = update_filter(clone)
+			# plt.clf()
+			# filtered_img, _ = update_filter(clone,True)
+			filtered_img, _ = update_filter(clone)
 			# post_img = update(filtered_img)
 
 		# Parse the user-input
@@ -180,14 +185,16 @@ if __name__ == "__main__" :
 			# post_img = update(filtered_img)
 			# out_img = post_img.astype(np.uint8)
 			cv2.imshow("Filtered Image", filtered_img)
-			plt.pause(0.001)
+			# plt.show()
+			# plt.pause(0.001)
 			# duration += time() - start
 			# count += 1
 			# print ("FPS: {}".format(count / duration))
 
 		# cv2.imshow("image", cur_img)
 		# plt.imshow(display)
-		# plt.show()
-		# plt.pause(0.001)
+		plt.show()
+		plt.pause(0.001)
+
 
 	cv2.destroyAllWindows()
