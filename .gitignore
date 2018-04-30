@@ -1,0 +1,6 @@
+*.user*
+*.user
+vids/*
+late_season/*
+early_season/*
+test/*
