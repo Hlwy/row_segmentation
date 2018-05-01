@@ -36,6 +36,12 @@ from utils import line_utils as lut
 
 def update(img):
 	global plt
+
+	_img = cv2.resize(img, (640,480))
+
+	horizon_present = sut.is_horizon_present(_img)
+	filtered_img, _ = update_filter(_img)
+
 	# vhist = sut.vertical_hist(img)
 	# hist = sut.histogram_sliding_filter(vhist)
 	# plt.plot(range(hist.shape[0]), hist[:,0])
@@ -56,9 +62,20 @@ def update(img):
 	# cv2.imshow("Clipped Lines", display)
 	# cv2.imshow("Normalized Image", normImg)
 
-	horizon_fit, horizon_inds, display = sut.find_horizon(img)
+	if horizon_present == True:
+		horizon_fit, horizon_inds, horizon_filtered = sut.find_horizon(filtered_img)
+	else:
+		horizon_filtered = filtered_img
 
-	return display
+	lut.find_line(horizon_filtered)
+
+	cv2.imshow("Horizon Line", horizon_filtered)
+	tmp_disp = np.copy(horizon_filtered)
+	# cv2.imshow()
+	# lines = tmp_disp
+	lines = lut.update_zhong(tmp_disp,0, 53.0,0.0,0.0,555.0,577.0)
+	cv2.imshow("Row Lines", lines)
+	return lines
 
 
 def update_filter(img, verbose=False):
@@ -137,24 +154,17 @@ if __name__ == "__main__" :
 				i = 0
 			print 'Next Image...'
 			new_img = np.copy(_imgs[i])
-			sut.test_img_row(new_img)
 			clone = cv2.resize(new_img, (640,480))
-			# plt.clf()
-			# filtered_img, _ = update_filter(clone,True)
-			filtered_img, _ = update_filter(clone)
-			# post_img = update(filtered_img)
+			post_img = update(new_img)
+
 		if key == ord('o'):
 			i = i - 1
 			if i < 0:
 				i = n - 1
 			print 'Previous Image...'
 			new_img = np.copy(_imgs[i])
-			sut.test_img_row(new_img)
 			clone = cv2.resize(new_img, (640,480))
-			# plt.clf()
-			# filtered_img, _ = update_filter(clone,True)
-			filtered_img, _ = update_filter(clone)
-			# post_img = update(filtered_img)
+			post_img = update(new_img)
 
 		# Parse the user-input
 		if key == ord(' '):
