@@ -39,8 +39,11 @@ def update(img):
 
 	_img = cv2.resize(img, (640,480))
 
+	# fut.filter_custom(_img)
+
 	horizon_present = sut.is_horizon_present(_img)
 	filtered_img, _ = update_filter(_img)
+
 
 	# vhist = sut.vertical_hist(img)
 	# hist = sut.histogram_sliding_filter(vhist)
@@ -63,18 +66,20 @@ def update(img):
 	# cv2.imshow("Normalized Image", normImg)
 
 	if horizon_present == True:
-		horizon_fit, horizon_inds, horizon_filtered = sut.find_horizon(filtered_img)
+		horizon_fit, horizon_inds, horizon_filtered, horizon_display = sut.find_horizon(filtered_img)
+		# cv2.imshow("Found Horizon Line", horizon_display)
 	else:
 		horizon_filtered = filtered_img
+		horizon_display = filtered_img
 
-	lut.find_line(horizon_filtered)
+	disp,_ = lut.find_line(horizon_filtered)
+	cv2.imshow("Lines Found", disp)
 
-	cv2.imshow("Horizon Line", horizon_filtered)
 	tmp_disp = np.copy(horizon_filtered)
-	# cv2.imshow()
-	# lines = tmp_disp
-	lines = lut.update_zhong(tmp_disp,0, 53.0,0.0,0.0,555.0,577.0)
-	cv2.imshow("Row Lines", lines)
+	lines = tmp_disp
+	# lines = lut.update_zhong(tmp_disp,0, 53.0,0.0,0.0,555.0,577.0)
+
+	# cv2.imshow("Row Lines", lines)
 	return lines
 
 
@@ -121,7 +126,7 @@ if __name__ == "__main__" :
 
 	# Extract stored arguments array into individual variables for later usage in script
 	_img = args["pic"]
-	_imgs = ut.get_images_by_dir(_img)
+	_imgs, _img_names = ut.get_images_by_dir(_img)
 	img = _imgs[0]	# Input video file as OpenCV VideoCapture device
 
 	# create trackbars for color change

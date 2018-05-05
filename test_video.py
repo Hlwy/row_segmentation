@@ -18,24 +18,26 @@ import argparse
 from time import time
 from matplotlib import pyplot as plt
 import numpy as np
-import utils as ut
-import filter_utils as fut
-import seg_utils as sut
+from utils import utils as ut
+from utils import filter_utils as fut
+from utils import seg_utils as sut
+from utils import line_utils as lut
 
 def update(img):
+	global filter_index, mask_flag, use_raw
+	_img = cv2.resize(img, (640,480))
+	horizon_present = sut.is_horizon_present(_img)
+	filtered_img = update_filter(_img)
 
-	vhist = sut.vertical_hist(img)
-	hist = sut.histogram_sliding_filter(vhist)
-	minypix = sut.find_horizon(hist[:,1])
+	if horizon_present == True:
+		horizon_fit, horizon_inds, horizon_filtered, horizon_display = sut.find_horizon(filtered_img)
+		# cv2.imshow("Found Horizon Line", horizon_display)
+	else:
+		horizon_filtered = filtered_img
+		horizon_display = filtered_img
 
-	clipped = sut.crop_below_pixel(img, minypix)
-	white = np.ones((clipped.shape[0], clipped.shape[1],3), dtype=np.uint8)*255
-	black = np.zeros((minypix, clipped.shape[1],3), dtype=np.uint8)
-	mask = np.vstack((black,white))
-	mask = cv2.cvtColor(mask,cv2.COLOR_BGR2GRAY)
-	normImg = cv2.bitwise_and(img,img,mask = mask)
-
-	display = ut.update_zhong(normImg,0, 53.0,0.0,0.0,555.0,577.0)
+	display,_ = lut.find_line(horizon_filtered)
+	cv2.imshow("Lines Found", display)
 
 	# cv2.imshow("Clipped Lines", display)
 	return display
@@ -46,9 +48,9 @@ def update_filter(img):
 
 	# Process the new image
 	if filter_index == 0:
-		mask = fut.filter_green(img)
+		_, mask = fut.filter_green(img)
 	elif filter_index == 1:
-		mask = fut.filter_brown(img)
+		_, mask = fut.filter_brown(img)
 
 	if mask_flag == True:
 		color_mask = fut.add_green_mask(mask)
@@ -78,7 +80,7 @@ if __name__ == "__main__" :
 
 	# Extract stored arguments array into individual variables for later usage in script
 	_img = args["pic"]
-	_imgs = ut.get_images_by_dir(_img)
+	_imgs, _ = ut.get_images_by_dir(_img)
 	img = _imgs[0]	# Input video file as OpenCV VideoCapture device
 	video_path = '/home/hunter/data/vids/1/VID_20170426_145010.mp4'
 
@@ -100,7 +102,7 @@ if __name__ == "__main__" :
 	n = len(_imgs)
 	filter_index = 1
 	max_filters = 2
-	mask_flag = True
+	mask_flag = False
 	use_raw = True
 	flag_play = False
 
@@ -136,8 +138,7 @@ if __name__ == "__main__" :
 
 				_, img = cap.retrieve()
 				cur_img = cv2.resize(img, (640,480))
-				filtered_img = update_filter(cur_img)
-				post_img = update(filtered_img)
+				post_img = update(cur_img)
 				out_img = post_img.astype(np.uint8)
 
 				duration += time() - start

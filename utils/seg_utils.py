@@ -6,6 +6,7 @@
 # Current Recommended Usage: (in terminal)
 # 	TODO
 from matplotlib import pyplot as plt
+import utils as ut
 import numpy as np
 import os
 import cv2
@@ -58,7 +59,6 @@ def histogram_sliding_filter(hist, window_size=16):
 def find_horizon_simple(v_hist,window_size=16):
 	minval = [0,0]
 	n_slopes = v_hist.shape[0] // window_size
-
 	# print("Slopes: " + str(n_slopes))
 
 	for i in range(n_slopes):
@@ -74,20 +74,13 @@ def find_horizon_simple(v_hist,window_size=16):
 			minval = tmp
 
 	# print("Minimum: " + str(minval))
-
 	tmpVal = int(minval[1])
-
-	# if tmpVal >= -200:
-	# 	idx = 0
-	# else:
-	# 	idx = int(minval[0])
-
 	idx = int(minval[0])
-
 	return idx
 
 def find_horizon(img, nwindows=8, minpix=300, window_height=20, flag_plot=False):
 	tmp = cv2.resize(img, (640,480))
+	cropped = np.copy(tmp)
 	display = np.copy(tmp)
 	h, w, c = tmp.shape
 
@@ -184,8 +177,8 @@ def find_horizon(img, nwindows=8, minpix=300, window_height=20, flag_plot=False)
 	try:
 		# Fit a second order polynomial to each
 		horizon_fit = np.polyfit(y, x, 1)
-
 		# print("Horizon Slope: " + str(horizon_fit[0]))
+
 		# Generate x and y values for plotting
 		ploty = np.linspace(0, tmp.shape[1]-1, tmp.shape[1] )
 		plotx = horizon_fit[0]*ploty + horizon_fit[1]
@@ -199,38 +192,42 @@ def find_horizon(img, nwindows=8, minpix=300, window_height=20, flag_plot=False)
 
 		if flag_plot == True:
 			global plt
-			# plt.figure()
-			plt.clf()
-			plt.imshow(tmp)
-			plt.plot(plotx, ploty, color='yellow')
-			plt.plot(plotx_offset, ploty, color='red')
-			plt.xlim(0, img.shape[1])
-			plt.ylim(img.shape[0], 0)
+			fig = plt.figure(3)
+			fig.clf()
+			fig.imshow(tmp)
+			fig.plot(plotx, ploty, color='yellow')
+			fig.plot(plotx_offset, ploty, color='red')
+			fig.xlim(0, img.shape[1])
+			fig.ylim(img.shape[0], 0)
+			display = ut.fig2img(fig)
 			# plt.show()
 			# plt.pause(0.001)
+			cv2.imshow("Found Horizon Line",display)
 	except:
 		print("ERROR: Function 'polyfit' failed!")
 		horizon_fit = []
 		plotx_offset = [0, 0]
 		ploty = [0, 0]
-		display = tmp
+		cropped = tmp
 		pass
 
-	pts = np.array([[0,ploty[0]],[plotx_offset[0],ploty[0]],[plotx_offset[-1],ploty[-1]], [display.shape[1],0]], np.int32)
-	# pts = pts.reshape((-1,1,2))
-	cv2.fillPoly(display,[pts],(0,0,0))
-	# cv2.line(display,(int(plotx_offset[0]),int(ploty[0])),(int(plotx_offset[-1]),int(ploty[-1])),(0,0,255))
-	return horizon_fit, horizon_inds, display
+	pts = np.array([[0,ploty[0]],[plotx_offset[0],ploty[0]],[plotx_offset[-1],ploty[-1]], [cropped.shape[1],0]], np.int32)
+	cv2.fillPoly(cropped,[pts],(0,0,0))
+
+	cv2.line(display,(int(plotx_offset[0]),int(ploty[0])),(int(plotx_offset[-1]),int(ploty[-1])),(0,0,255))
+	return horizon_fit, horizon_inds, cropped, display
 
 
-def is_horizon_present(img, testing_row=0,nrows=10, flag_plot=False):
+def is_horizon_present(img, nrows=10, verbose=False, flag_plot=False):
 	_img = cv2.resize(img, (640,480))
 
-	# rows_right = _img[testing_row:testing_row+nrows,(3*_img.shape[1])//4:]
-	# rows_left = _img[testing_row:testing_row+nrows,_img.shape[1]//4:_img.shape[1]//2]
+	starting_row = 0
 
-	rows_right = _img[testing_row:testing_row+nrows,(7*_img.shape[1])//8:]
-	rows_left = _img[testing_row:testing_row+nrows,_img.shape[1]//8:_img.shape[1]//2]
+	# rows_right = _img[starting_row:starting_row+nrows,(3*_img.shape[1])//4:]
+	# rows_left = _img[starting_row:starting_row+nrows,_img.shape[1]//4:_img.shape[1]//2]
+
+	rows_right = _img[starting_row:starting_row+nrows,(7*_img.shape[1])//8:]
+	rows_left = _img[starting_row:starting_row+nrows,_img.shape[1]//8:_img.shape[1]//2]
 
 	hist_right = np.sum(rows_right, axis=0)/nrows
 	hist_left = np.sum(rows_left, axis=0)/nrows
@@ -248,10 +245,12 @@ def is_horizon_present(img, testing_row=0,nrows=10, flag_plot=False):
 
 	if rgb_left > rgb_right:
 		rgb = rgb_left
-		# print("Left Side of image contains higher RGB values")
+		if verbose == True:
+			print("Left Side of image contains higher RGB values")
 	else:
 		rgb = rgb_right
-		# print("Right Side of image contains higher RGB values")
+		if verbose == True:
+			print("Right Side of image contains higher RGB values")
 
 	eps = [200, 200, 200]
 	checker = np.greater_equal(rgb,eps)
@@ -262,8 +261,8 @@ def is_horizon_present(img, testing_row=0,nrows=10, flag_plot=False):
 	else:
 		flag = False
 		# print("No need to find Horizon")
-
-	# print("Average RGB Values: " + str(rgb))
+	if verbose == True:
+		print("Average RGB Values: " + str(rgb))
 
 	if flag_plot == True:
 		global plt

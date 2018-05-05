@@ -5,7 +5,7 @@
 # 	TODO
 # Current Recommended Usage: (in terminal)
 # 	TODO
-
+from matplotlib import pyplot as plt
 import cv2
 import numpy as np
 
@@ -50,31 +50,113 @@ def filter_green(_img, flag_invert=1, flip_order=None):
 
 	return res, comp_mask
 
-def filter_brown(_img, flag_invert=1, flip_order=None):
+def filter_brown(_img, flip_order=None):
 	tmp = cv2.resize(_img, (640,480))
 	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
 	yuv = cv2.cvtColor(tmp,cv2.COLOR_BGR2YUV)
 
-	lower_yuv_brown = np.array([0, 0, 0])
-	upper_yuv_brown = np.array([164, 126, 255])
+	lower_yuv_brown = np.array([0, 0, 0]) # Original
+	# upper_yuv_brown = np.array([164, 126, 255]) #
+	upper_yuv_brown = np.array([164, 126, 126]) # Original
 
-	lower_hsv_brown = np.array([32, 52, 118])
-	upper_hsv_brown = np.array([255, 255, 255])
+	# lower_hsv_brown = np.array([32, 52, 24])
+	upper_hsv_brown = np.array([255, 255, 164]) # Original
+	lower_hsv_brown = np.array([32, 52, 118]) # Original
+	# upper_hsv_brown = np.array([255, 255, 255]) # Original
 
 	mask_yuv = cv2.inRange(yuv, lower_yuv_brown, upper_yuv_brown)
+	_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY)
 	res_yuv = cv2.bitwise_and(tmp, tmp, mask = mask_yuv)
 
 	mask_hsv = cv2.inRange(hsv, lower_hsv_brown, upper_hsv_brown)
+	_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
 	res_hsv = cv2.bitwise_and(tmp, tmp, mask = mask_hsv)
 
-	if flag_invert == 0:
-		comp_mask = mask_yuv | mask_hsv
-	if flag_invert == 1:
-		comp_mask = mask_yuv & mask_hsv
+	# if flag_invert == 0:
+	# 	comp_mask = mask_yuv | mask_hsv
+	# if flag_invert == 1:
+	# 	comp_mask = mask_yuv & mask_hsv
 
+	comp_mask = cv2.bitwise_and(mask_yuv,mask_hsv)
+	_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
 	res = cv2.bitwise_and(tmp, tmp, mask = comp_mask)
 
 	return res, comp_mask
+
+def filter_custom(_img, verbose=True):
+	tmp = cv2.resize(_img, (640,480))
+	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
+	yuv = cv2.cvtColor(tmp,cv2.COLOR_BGR2YUV)
+
+	h, w, c = tmp.shape
+
+	rows_yuv = yuv[(31*h)//32:,:]
+	rows_hsv = hsv[(31*h)//32:,:]
+
+	hist_yuv = np.sum(rows_yuv, axis=1)//rows_yuv.shape[1]
+	imax_yuv = np.argmax(hist_yuv, axis=0)
+	imin_yuv = np.argmin(hist_yuv, axis=0)
+
+	hist_hsv = np.sum(rows_hsv, axis=1)//rows_hsv.shape[1]
+	imax_hsv = np.argmax(hist_hsv, axis=0)
+	imin_hsv = np.argmin(hist_hsv, axis=0)
+
+	# if verbose == True:
+	# 	print("	Max Index YUV: " + str(imax_yuv))
+	# 	print("	Min Index YUV: " + str(imin_yuv))
+	# 	print("	Max Index HSV: " + str(imax_hsv))
+	# 	print("	Min Index HSV: " + str(imin_hsv))
+
+	upper_yuv = np.array([int(hist_yuv[imax_yuv[0],0]),int(hist_yuv[imax_yuv[1],1]),int(hist_yuv[imax_yuv[2],2])])
+	lower_yuv = np.array([int(hist_yuv[imin_yuv[0],0]),int(hist_yuv[imin_yuv[1],1]),int(hist_yuv[imin_yuv[2],2])])
+	# lower_yuv = np.array([0, 0, 0])
+
+	upper_hsv = np.array([int(hist_hsv[imax_hsv[0],0]),int(hist_hsv[imax_hsv[1],1]),int(hist_hsv[imax_hsv[2],2])])
+	lower_hsv = np.array([int(hist_hsv[imin_hsv[0],0]),int(hist_hsv[imin_hsv[1],1]),int(hist_hsv[imin_hsv[2],2])])
+	# upper_hsv = np.array([255, 255, 164])
+
+	if verbose == True:
+		print("	Upper YUV: " + str(upper_yuv))
+		print("	Lower YUV: " + str(lower_yuv))
+		print("	Upper HSV: " + str(upper_hsv))
+		print("	Lower HSV: " + str(lower_hsv))
+
+	if verbose == True:
+		plt.figure(6)
+		plt.clf()
+		plt.subplot(1,2,1)
+		plt.title("Histogram: Bottom portion of YUV image")
+		plt.plot(range(hist_yuv.shape[0]), hist_yuv[:,0])
+		plt.plot(range(hist_yuv.shape[0]), hist_yuv[:,1])
+		plt.plot(range(hist_yuv.shape[0]), hist_yuv[:,2])
+		plt.subplot(1,2,2)
+		plt.title("Histogram: Bottom portion of HSV image")
+		plt.plot(range(hist_hsv.shape[0]), hist_hsv[:,0])
+		plt.plot(range(hist_hsv.shape[0]), hist_hsv[:,1])
+		plt.plot(range(hist_hsv.shape[0]), hist_hsv[:,2])
+
+
+	mask_yuv = cv2.inRange(yuv, lower_yuv, upper_yuv)
+	_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY)
+	res_yuv = cv2.bitwise_and(tmp, tmp, mask = mask_yuv)
+
+	mask_hsv = cv2.inRange(hsv, lower_hsv, upper_hsv)
+	_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
+	res_hsv = cv2.bitwise_and(tmp, tmp, mask = mask_hsv)
+
+	# cv2.imshow("YUV Mask",mask_yuv)
+	# cv2.imshow("HSV Mask",mask_hsv)
+
+	# if flag_invert == 0:
+	# 	comp_mask = mask_yuv | mask_hsv
+	# if flag_invert == 1:
+	# 	comp_mask = mask_yuv & mask_hsv
+
+	comp_mask = cv2.bitwise_and(mask_yuv,mask_hsv)
+	_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
+	res = cv2.bitwise_and(tmp, tmp, mask = comp_mask)
+	cv2.imshow("Resultant", res)
+	# return res, comp_mask
 
 def add_green_mask(white_mask):
 

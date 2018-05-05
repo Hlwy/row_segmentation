@@ -20,154 +20,164 @@ import argparse
 from matplotlib import pyplot as plt
 import numpy as np
 import utils
+import filter_utils as fut
 
 
 def onChange(pos):
-    global img
-    global _imgs
-    global tmp
-    global i
+	global img
+	global _imgs
+	global tmp
+	global i
+	global lower_hsv
+	global upper_hsv
+	global lower_yuv
+	global upper_yuv
 
-    img = _imgs[i]
-    # tmp = np.copy(img)
-    tmp = cv2.resize(img, (640,480))
+	img = _imgs[i]
+	# tmp = np.copy(img)
+	tmp = cv2.resize(img, (640,480))
 
-    # get current positions of four trackbars
-    hmin = cv2.getTrackbarPos('Hmin','image')
-    smin = cv2.getTrackbarPos('Smin','image')
-    vmin = cv2.getTrackbarPos('Vmin','image')
-    hmax = cv2.getTrackbarPos('Hmax','image')
-    smax = cv2.getTrackbarPos('Smax','image')
-    vmax = cv2.getTrackbarPos('Vmax','image')
-    ymin = cv2.getTrackbarPos('Ymin','image')
-    umin = cv2.getTrackbarPos('Umin','image')
-    vvmin = cv2.getTrackbarPos('VVmin','image')
-    ymax = cv2.getTrackbarPos('Ymax','image')
-    umax = cv2.getTrackbarPos('Umax','image')
-    vvmax = cv2.getTrackbarPos('VVmax','image')
-    ks = cv2.getTrackbarPos('kernelSize','image')
-    ws = cv2.getTrackbarPos('colorSize','image')
-    thresh_flag = cv2.getTrackbarPos('threshInv','image')
+	# get current positions of four trackbars
+	hmin = cv2.getTrackbarPos('Hmin','image')
+	smin = cv2.getTrackbarPos('Smin','image')
+	vmin = cv2.getTrackbarPos('Vmin','image')
+	hmax = cv2.getTrackbarPos('Hmax','image')
+	smax = cv2.getTrackbarPos('Smax','image')
+	vmax = cv2.getTrackbarPos('Vmax','image')
+	ymin = cv2.getTrackbarPos('Ymin','image')
+	umin = cv2.getTrackbarPos('Umin','image')
+	vvmin = cv2.getTrackbarPos('VVmin','image')
+	ymax = cv2.getTrackbarPos('Ymax','image')
+	umax = cv2.getTrackbarPos('Umax','image')
+	vvmax = cv2.getTrackbarPos('VVmax','image')
+	flag_yuv_inv = cv2.getTrackbarPos('yuvInv','image')
+	flag_hsv_inv = cv2.getTrackbarPos('hsvInv','image')
+	flag_final_inv = cv2.getTrackbarPos('finalInv','image')
 
-    gray = cv2.cvtColor(tmp,cv2.COLOR_BGR2GRAY)
-    hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
-    yuv = cv2.cvtColor(tmp,cv2.COLOR_BGR2YUV)
+	gray = cv2.cvtColor(tmp,cv2.COLOR_BGR2GRAY)
+	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
+	yuv = cv2.cvtColor(tmp,cv2.COLOR_BGR2YUV)
 
-    lower_yuv = np.array([ymin, umin, vvmin])
-    upper_yuv = np.array([ymax, umax, vvmax])
+	lower_yuv = np.array([ymin, umin, vvmin])
+	upper_yuv = np.array([ymax, umax, vvmax])
+	mask_yuv = cv2.inRange(yuv, lower_yuv, upper_yuv)
 
-    # lower_yuv = np.array([107, 0, 0])
-    # upper_yuv = np.array([255, 116, 255])
+	if flag_yuv_inv == 0:
+		ret, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY_INV)
+	if flag_yuv_inv == 1:
+		ret, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY)
 
-    mask1 = cv2.inRange(yuv, lower_yuv, upper_yuv)
-    res1 = cv2.bitwise_and(tmp, tmp, mask = mask1)
-    # plt.imshow(res, cmap='gray')
-    cv2.imshow('white filtered',res1)
+	res_yuv = cv2.bitwise_and(tmp, tmp, mask = mask_yuv)
+	cv2.imshow('white mask',mask_yuv)
+	# cv2.imshow('white filtered',res_yuv)
 
+	lower_hsv = np.array([hmin, smin, vmin])
+	upper_hsv = np.array([hmax, smax, vmax])
+	mask_hsv = cv2.inRange(hsv, lower_hsv, upper_hsv)
 
-    # lower_red2 = np.array([hmax, smax, vmax])
-    # upper_red2 = np.array([255, 255, 255])
+	if flag_hsv_inv == 0:
+		ret, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY_INV)
+	if flag_hsv_inv == 1:
+		ret, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
 
-    lower_yuv2 = np.array([hmin, smin, vmin])
-    upper_yuv2 = np.array([hmax, smax, vmax])
+	res_hsv = cv2.bitwise_and(tmp, tmp, mask = mask_hsv)
+	cv2.imshow('color mask',mask_hsv)
+	# cv2.imshow('color filtered',res_hsv)
 
-    mask2 = cv2.inRange(hsv, lower_yuv2, upper_yuv2)
-    res2 = cv2.bitwise_and(tmp, tmp, mask = mask2)
-    cv2.imshow('color filtered',res2)
+	comp_mask = cv2.bitwise_and(mask_yuv,mask_hsv)
+	if flag_final_inv == 0:
+		_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY_INV)
+	if flag_final_inv == 1:
+		_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
 
-    if thresh_flag == 0:
-        comp_mask = mask1 | mask2
-    if thresh_flag == 1:
-        comp_mask = mask1 & mask2
+	res = cv2.bitwise_and(tmp, tmp, mask = comp_mask)
 
-    res = cv2.bitwise_and(tmp, tmp, mask = comp_mask)
-
-    cv2.imshow('Composite mask',comp_mask)
-    cv2.imshow('Composite filtered',res)
-
-    gray = cv2.cvtColor(res,cv2.COLOR_BGR2GRAY)
-
-    if thresh_flag == 0:
-        ret, thresh = cv2.threshold(gray,128,255,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
-    if thresh_flag == 1:
-        ret, thresh = cv2.threshold(gray,128,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-
-    res3 = cv2.bitwise_and(tmp, tmp, mask = thresh)
-
-    # test = cv2.pyrMeanShiftFiltering(res,ks, ws, 3)
-    # cv2.imshow('Composite filtered Blurred',test)
-	
-    # kernel = np.ones((ks,ks),np.uint8)
-    # opening = cv2.morphologyEx(res3,cv2.MORPH_OPEN,kernel, iterations = 2)
-    # cv2.imshow('opened',opening)
-    # closing = cv2.morphologyEx(res3,cv2.MORPH_CLOSE,kernel, iterations = 2)
-    # cv2.imshow('closed',closing)
-    #
-    # if thresh_flag == 0:
-    #     gray2 = cv2.cvtColor(opening,cv2.COLOR_BGR2GRAY)
-    # if thresh_flag == 1:
-    #     gray2 = cv2.cvtColor(closing,cv2.COLOR_BGR2GRAY)
-    #
-    # ret, helper = cv2.threshold(gray2,128,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-
-    # hlines = helper
-    # lines = cv2.HoughLinesP(hlines,1,np.pi/180,desiredThresh,minLineLength,maxLineGap)
-    # for x in range(0, len(lines)):
-    #     for x1,y1,x2,y2 in lines[x]:
-    #         cv2.line(tmp,(x1,y1),(x2,y2),(0,255,0),2)
+	cv2.imshow('Composite mask',comp_mask)
+	cv2.imshow('Composite filtered',res)
 
 
 #Run Main
 if __name__ == "__main__" :
 
-    # Setup commandline argument(s) structures
-    ap = argparse.ArgumentParser(description='Image Segmentation')
-    ap.add_argument("--pic", "-p", type=str, default='test_imgs', metavar='FILE', help="Name of video file to parse")
-    # Store parsed arguments into array of variables
-    args = vars(ap.parse_args())
+	# Setup commandline argument(s) structures
+	ap = argparse.ArgumentParser(description='Image Segmentation')
+	ap.add_argument("--pic", "-p", type=str, default='test', metavar='FILE', help="Name of video file to parse")
+	# Store parsed arguments into array of variables
+	args = vars(ap.parse_args())
 
-    # Extract stored arguments array into individual variables for later usage in script
-    _img = args["pic"]
-    _imgs = utils.get_images_by_dir(_img)
+	# Extract stored arguments array into individual variables for later usage in script
+	_img = args["pic"]
+	_imgs, _img_names = utils.get_images_by_dir(_img)
 
-    # create trackbars for color change
-    cv2.namedWindow('image')
+	# create trackbars for color change
+	cv2.namedWindow('image')
 
-    # create trackbars for color change
-    cv2.createTrackbar('Hmin','image',0,255,onChange)
-    cv2.createTrackbar('Smin','image',0,255,onChange)
-    cv2.createTrackbar('Vmin','image',0,255,onChange)
-    cv2.createTrackbar('Hmax','image',255,255,onChange)
-    cv2.createTrackbar('Smax','image',24,255,onChange)
-    cv2.createTrackbar('Vmax','image',232,255,onChange)
-    cv2.createTrackbar('Ymin','image',39,255,onChange)
-    cv2.createTrackbar('Umin','image',124,255,onChange)
-    cv2.createTrackbar('VVmin','image',106,255,onChange)
-    cv2.createTrackbar('Ymax','image',202,255,onChange)
-    cv2.createTrackbar('Umax','image',255,255,onChange)
-    cv2.createTrackbar('VVmax','image',129,255,onChange)
-    cv2.createTrackbar('kernelSize','image',0,255,onChange)
-    cv2.createTrackbar('colorSize','image',0,255,onChange)
-    cv2.createTrackbar('threshInv','image',0,1,onChange)
+	# create trackbars for color change
+	cv2.createTrackbar('Hmin','image',32,255,onChange)
+	cv2.createTrackbar('Smin','image',52,255,onChange)
+	cv2.createTrackbar('Vmin','image',118,255,onChange)
+	cv2.createTrackbar('Hmax','image',255,255,onChange)
+	cv2.createTrackbar('Smax','image',255,255,onChange)
+	cv2.createTrackbar('Vmax','image',110,255,onChange)
+	cv2.createTrackbar('Ymin','image',0,255,onChange)
+	cv2.createTrackbar('Umin','image',0,255,onChange)
+	cv2.createTrackbar('VVmin','image',0,255,onChange)
+	cv2.createTrackbar('Ymax','image',164,255,onChange)
+	cv2.createTrackbar('Umax','image',126,255,onChange)
+	cv2.createTrackbar('VVmax','image',126,255,onChange)
+	cv2.createTrackbar('yuvInv','image',0,1,onChange)
+	cv2.createTrackbar('hsvInv','image',0,1,onChange)
+	cv2.createTrackbar('finalInv','image',0,1,onChange)
 
-    img = _imgs[0]	# Input video file as OpenCV VideoCapture device
-    tmp = cv2.resize(img, (640,480))
-    i = 0
+	img = _imgs[0]	# Input video file as OpenCV VideoCapture device
+	tmp = cv2.resize(img, (640,480))
+	i = 0
+	data_saved = 0
+	n = len(_imgs)
+	lower_hsv = []
+	upper_hsv = []
+	lower_yuv = []
+	upper_yuv = []
 
-    n = len(_imgs)
-    # print n
+	data_out = []
+	# tmpDataHeader = "image_path, lower_yuv [Y], lower_yuv [U], lower_yuv [V], upper_yuv [Y], upper_yuv [U], upper_yuv [V], lower_hsv [H], lower_hsv [S], lower_hsv [V], upper_hsv [H], upper_hsv [S], upper_hsv [V]"
+	# data_out.append(np.asarray([tmpDataHeader]))
 
-    while True:
-        # print i
-        tmp = cv2.resize(_imgs[i], (640,480))
-        cv2.imshow("image", tmp)
-        key = cv2.waitKey(5) & 0xFF
-        if key == ord('q'):
-            break
-        if key == ord('p'):
-            i = i + 1
-            if i >= n:
-                i = 0
-            print 'Next Image...'
+	while True:
+		# print i
+		key = cv2.waitKey(5) & 0xFF
+		if key == ord('q'):
+			print data_out.shape
+			np.savetxt("foo.csv", np.asarray(data_out), delimiter=",")
+			break
+		if key == ord('s'):
+			print("Saving Constants for " + str(_img_names[i]))
+			# tmpData = str(_img_names[i] + "," + str(lower_yuv[1]) + "," + str(lower_yuv[2]) + "," + str(lower_yuv[3]) + "," + str(upper_yuv[1]) + "," + str(upper_yuv[2]))
+			# tmpData = str(tmpData) + "," + str(upper_yuv[2]) + "," + str(lower_hsv[0]) + "," + str(lower_hsv[1]) + "," + str(lower_hsv[2]) + "," + str(upper_hsv[0])
+			# tmpData = str(tmpData) + "," + str(upper_hsv[1]) + "," + str(upper_hsv[2])
 
-    cv2.destroyAllWindows()
+			tmpData = np.asarray([ _img_names[i] , lower_yuv, upper_yuv, lower_hsv, upper_hsv ], dtype=np.dtype('a16'))
+			print tmpData
+			# np.savetxt("foo.csv", data_out, delimiter=",")
+			print("	YUV Bounds: " + str(lower_yuv) + " --> " + str(upper_yuv))
+			print("	HSV Bounds: " + str(lower_hsv) + " --> " + str(upper_hsv))
+			data_out.append(tmpData)
+			data_saved += 1
+		if key == ord('p'):
+			i = i + 1
+			if i >= n:
+				i = 0
+
+			print('Next Image ------ ' + str(_img_names[i]))
+			tmp = cv2.resize(_imgs[i], (640,480))
+			fut.filter_custom(tmp)
+		if key == ord('o'):
+			i = i - 1
+			if i < 0:
+				i = n - 1
+			print('Previous Image ------ ' + str(_img_names[i]))
+			tmp = cv2.resize(_imgs[i], (640,480))
+			fut.filter_custom(tmp)
+
+		cv2.imshow("image", tmp)
+	cv2.destroyAllWindows()

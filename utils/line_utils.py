@@ -10,6 +10,7 @@ import numpy as np
 import os
 import cv2
 import seg_utils as sut
+import math
 
 class Point:
 	def __init__(self, x, y):
@@ -69,50 +70,91 @@ class Line():
                 self.recent_fitted.append(fit)
 
 
-def find_line(img, nwindows=8, minpix=300, xbuf=20, ybuf=20, flag_plot=True):
-	global plt
+def find_line(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, flag_manual=False, flag_plot_hists=False):
 	tmp = cv2.resize(img, (640,480))
-	display = np.copy(tmp)
+	display_windows = np.copy(tmp)
+	display_lines = np.copy(tmp)
 	h, w, c = tmp.shape
 
-	nrows = w//8
-	rows_right = tmp[:,(7*w)//8:]
-	rows_left = tmp[:,0:w//8]
+	h_final = 15
+	w_final = 30
+
+	# Good for linear decaying window size
+	# xbuf=40
+ 	# ybuf=50
+
+	xbuf=margins[0]
+ 	ybuf=margins[1]
+
+	# # Look at the first 1/8 of both the image's sides
+	# rows_right = tmp[:,(7*w)//8:]
+	# rows_left = tmp[:,0:w//8]
+	# Look at the first 1/4 of both the image's sides
+	rows_right = tmp[:,(3*w)//4:]
+	rows_left = tmp[:,0:w//4]
+
 	hist_right = np.sum(rows_right, axis=1)
 	hist_left = np.sum(rows_left, axis=1)
 
-	eps = 200
+	if flag_plot_hists == True:
+		plt.figure(5)
+		plt.clf()
+		plt.subplot(1,2,1)
+		plt.title("Histogram: Left Side of the Image")
+		plt.plot(range(hist_left.shape[0]), hist_left[:,0])
+		plt.plot(range(hist_left.shape[0]), hist_left[:,1])
+		plt.plot(range(hist_left.shape[0]), hist_left[:,2])
+		plt.subplot(1,2,2)
+		plt.title("Histogram: Right Side of the Image")
+		plt.plot(range(hist_right.shape[0]), hist_right[:,0])
+		plt.plot(range(hist_right.shape[0]), hist_right[:,1])
+		plt.plot(range(hist_right.shape[0]), hist_right[:,2])
+
 	lefty_base = 0
-	flag_found = False
-	for i in range(h):
-		if flag_found == False:
-			tmpPixL = hist_left[-i,1]
-			if tmpPixL > eps:
-				lefty_base = h-i
-				flag_found = True
-
 	righty_base = 0
-	flag_found = False
-	for i in range(h):
-		if flag_found == False:
-			tmpPixR = hist_right[-i,1]
-			if tmpPixR > eps:
-				righty_base = h-i
-				flag_found = True
+	eps=300
 
-	print("Left Base Y Pixel Found @ " + str(lefty_base))
-	print("Right Base Y Pixel Found @ " + str(righty_base))
+	flag_found = False
+	for i in range(h-1,-1,-1):
+		if flag_found == False:
+			tmpPixL = hist_left[i,1]
+			if tmpPixL > eps:
+				lefty_base = i
+				flag_found = True
+				# print("Left Line: Starting Pixel Found @ i = " + str(i))
+				# print("Left Line: Histogram Value @ " + str(lefty_base) + ": " + str(tmpPixL))
+
+	flag_found = False
+	for i in range(h-1,-1,-1):
+		if flag_found == False:
+			tmpPixR = hist_right[i,1]
+			if tmpPixR > eps:
+				righty_base = i
+				flag_found = True
+				# print("Right Line: Starting Pixel Found @ i = " + str(i))
+				# print("Right Line: Histogram Value @ " + str(righty_base) + ": " + str(tmpPixR))
+
+	lefty_base = lefty_base - 20
+	righty_base = righty_base - 20
+	# print("Left Base Y Pixel Found @ " + str(lefty_base))
+	# print("Right Base Y Pixel Found @ " + str(righty_base))
 
 	# Set height of windows
-	# window_height = np.int(tmp.shape[0]/nwindows)
-	# window_width = np.int(tmp.shape[1]/nwindows)
+	height_base = ybuf
+	width_base = xbuf
+	# height_base = np.int(h/nwindows)
+	# width_base = np.int(w/nwindows)
 
-	window_height = np.int(tmp.shape[0]/nwindows)
-	window_width = xbuf
+	dheight = (h_final - height_base) / float(nwindows)
+	dwidth = (w_final - width_base) / float(nwindows)
+	window_height_l = height_base
+	window_width_l = width_base
+	window_height_r = height_base
+	window_width_r = width_base
 	# print("Window Size: " + str(window_height) + ", " + str(window_width))
 
-	leftx_base = 0 + window_width
-	rightx_base = w - window_width
+	leftx_base = 0 #+ window_width
+	rightx_base = w #- window_width
 
 	# Identify the x and y positions of all nonzero pixels in the image
 	nonzero = tmp.nonzero()
@@ -120,109 +162,188 @@ def find_line(img, nwindows=8, minpix=300, xbuf=20, ybuf=20, flag_plot=True):
 	nonzerox = np.array(nonzero[1])
 	# Current positions to be updated for each window
 	leftx_current = leftx_base
-	rightx_current = rightx_base
 	lefty_current = lefty_base
+	rightx_current = rightx_base
 	righty_current = righty_base
 
 	# Create empty lists to receive left and right lane pixel indices
 	left_lane_inds = []
 	right_lane_inds = []
 
-	cv2.circle(display,(leftx_current,lefty_current),5,(0,0,255),-1)
-	cv2.circle(display,(rightx_current,righty_current),5,(255,0,0),-1)
-
+	factor = 1
 	# Step through the windows one by one
 	for window in range(nwindows):
 
-		# Identify window boundaries in x and y (and right and left)
-		win_y_low = h - (window+1)*window_height
-		win_y_high = h - window*window_height
+		# Left Side:
+		#			Check for [Y] edge conditions
+		if lefty_current - window_height_l >= 0:
+			win_yleft_low = lefty_current - window_height_l
+		else:
+			win_yleft_low = 0
 
-		win_xleft_low = leftx_current - window_width
-		win_xleft_high = leftx_current + window_width
+		if lefty_current + window_height_l <= h:
+			win_yleft_high = lefty_current + window_height_l
+		else:
+			win_yleft_high = h
 
-		win_xright_low = rightx_current - window_width
-		win_xright_high = rightx_current + window_width
+		#			Check for [X] edge conditions
+		if leftx_current - window_width_l >= 0:
+			win_xleft_low = leftx_current - window_width_l
+		else:
+			win_xleft_low = 0
 
-		# cv2.circle(display,(leftx_current,y_current),5,(0,0,255),-1)
-		# cv2.circle(display,(rightx_current,y_current),5,(255,0,0),-1)
+		if leftx_current + window_width_l <= w:
+			win_xleft_high = leftx_current + window_width_l
+		else:
+			win_xleft_high = w
+
+		# Right Side:
+		#			Check for [Y] edge conditions
+		if righty_current - window_height_r >= 0:
+			win_yright_low = righty_current - window_height_r
+		else:
+			win_yright_low = 0
+
+		if righty_current + window_height_r <= h:
+			win_yright_high = righty_current + window_height_r
+		else:
+			win_yright_high = h
+
+		#			Check for [X] edge conditions
+		if rightx_current - window_width_r >= 0:
+			win_xright_low = rightx_current - window_width_r
+		else:
+			win_xright_low = 0
+
+		if rightx_current + window_width_r <= w:
+			win_xright_high = rightx_current + window_width_r
+		else:
+			win_xright_high = w
+
+		cv2.circle(display_windows,(leftx_current,lefty_current),2,(0,0,255),-1)
+		cv2.circle(display_windows,(rightx_current,righty_current),2,(255,0,0),-1)
+		cv2.rectangle(display_windows,(win_xleft_low,win_yleft_high),(win_xleft_high,win_yleft_low),(0,0,255), 2)
+		cv2.rectangle(display_windows,(win_xright_low,win_yright_high),(win_xright_high,win_yright_low),(255,0,0), 2)
 
 		# print("	Current Window Center: " + str(x_current) + ", " + str(y_current))
 		# print("		Current Window X Limits: " + str(win_x_low) + ", " + str(win_x_high))
 		# print("		Current Window Y Limits: " + str(win_y_low) + ", " + str(win_y_high))
 
-		# Draw the windows on the visualization image
-		# cv2.rectangle(tmp,(win_x_low,win_y_high),(win_x_high,win_y_low),(255,0,0), 2)
+		# Identify the nonzero pixels in x and y within the window
+		good_left_inds = ((nonzeroy >= win_yleft_low) & (nonzeroy < win_yleft_high) &
+		(nonzerox >= win_xleft_low) &  (nonzerox < win_xleft_high)).nonzero()[0]
+		good_right_inds = ((nonzeroy >= win_yright_low) & (nonzeroy < win_yright_high) &
+		(nonzerox >= win_xright_low) &  (nonzerox < win_xright_high)).nonzero()[0]
+		# Append these indices to the lists
+		left_lane_inds.append(good_left_inds)
+		right_lane_inds.append(good_right_inds)
 
-		# # Identify the nonzero pixels in x and y within the window
-		# good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) &
-		# (nonzerox >= win_xleft_low) &  (nonzerox < win_xleft_high)).nonzero()[0]
-		# good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) &
-		# (nonzerox >= win_xright_low) &  (nonzerox < win_xright_high)).nonzero()[0]
-		# # Append these indices to the lists
-		# left_lane_inds.append(good_left_inds)
-		# right_lane_inds.append(good_right_inds)
+		# window_height = int(h_final + (height_base* factor * math.exp(-(window+1)/1.0)))
+		# window_width = int(w_final + (width_base* factor * math.exp(-(window+1)/2.5)))
+		# print("Next Window Size: " + str(window_height) + ", " + str(window_width))
 
-		# # If you found > minpix pixels, recenter next window on their mean position
+		dx = 1
+		dy = 2
+
+		# If you found > minpix pixels, recenter next window on their mean position
 		# print("Window " + str(window) + "---- # of Good Indices [left,right]: " + str(len(good_left_inds)) + ", " + str(len(good_right_inds)))
-		# if len(good_left_inds) > minpix:
-		# 	leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
-		# if len(good_right_inds) > minpix:
-		# 	rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
+		if len(good_left_inds) > minpix:
+			window_height_l = int(h_final + (height_base* factor * math.exp(-(window+1)/1.0)))
+			window_width_l = int(w_final + (width_base* factor * math.exp(-(window+1)/1.0)))
 
-	# # Concatenate the arrays of indices
-	# left_lane_inds = np.concatenate(left_lane_inds)
-	# right_lane_inds = np.concatenate(right_lane_inds)
+			leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
+			lefty_current = np.int(np.mean(nonzeroy[good_left_inds])) - window_height_l
+			# lefty_current = lefty_current - window_height
+			# print("	New Left Window Center: " + str(leftx_current) + ", " + str(lefty_current))
+		else:
+			window_height_l = int(h_final + (height_base* factor * math.exp(-(window+1)/1.5)))
+			window_width_l = int(w_final + (width_base* factor * math.exp(-(window+1)/2.5)))
 
-	# # Extract left and right line pixel positions
-	# leftx = nonzerox[left_lane_inds]
-	# lefty = nonzeroy[left_lane_inds]
-	# rightx = nonzerox[right_lane_inds]
-	# righty = nonzeroy[right_lane_inds]
+			try:
+				leftx_current = np.int(np.mean(nonzerox[good_left_inds])) + dx*window_width_l
+			except:
+				leftx_current = leftx_current + dx*window_width_l
+			lefty_current = lefty_current - dy*window_height_l
+			# print("[Left]---Not enough good pixels moving window center up: " + str(leftx_current) + ", " + str(lefty_current))
 
+		if len(good_right_inds) > minpix:
+			window_height_r = int(h_final + (height_base* factor * math.exp(-(window+1)/1.0)))
+			window_width_r = int(w_final + (width_base* factor * math.exp(-(window+1)/1.0)))
+
+			rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
+			righty_current = np.int(np.mean(nonzeroy[good_right_inds])) - window_height_r
+			# righty_current = righty_current - window_height
+			# print("	New Right Window Center: " + str(rightx_current) + ", " + str(righty_current))
+		else:
+			window_height_r = int(h_final + (height_base* factor * math.exp(-(window+1)/1.5)))
+			window_width_r = int(w_final + (width_base* factor * math.exp(-(window+1)/2.5)))
+
+			try:
+				rightx_current = np.int(np.mean(nonzerox[good_right_inds])) - dx*window_width_r
+			except:
+				rightx_current = rightx_current - dx*window_width_r
+			righty_current = righty_current - dy*window_height_r
+			# print("[Right]---Not enough good pixels moving window center up: " + str(rightx_current) + ", " + str(righty_current))
+
+
+		if flag_manual == True:
+			cv2.imshow("Lines Found", display_windows)
+			while True:
+				key = cv2.waitKey(5) & 0xFF
+				if key == ord(' '):
+					break
+				if key == ord('q'):
+					return -1
+	# Concatenate the arrays of indices
+	left_lane_inds = np.concatenate(left_lane_inds)
+	right_lane_inds = np.concatenate(right_lane_inds)
+
+	# Extract left and right line pixel positions
+	leftx = nonzerox[left_lane_inds]
+	lefty = nonzeroy[left_lane_inds]
+	rightx = nonzerox[right_lane_inds]
+	righty = nonzeroy[right_lane_inds]
+
+	ploty = np.linspace(0, w-1, w )
+
+	# Try fitting polynomial to left side
 	try:
-		# # Fit a second order polynomial to each
-		# horizon_fit = np.polyfit(y, x, 1)
-
-		print("Row Slope: ")
-		# # Generate x and y values for plotting
-		# ploty = np.linspace(0, tmp.shape[1]-1, tmp.shape[1] )
-		# plotx = horizon_fit[0]*ploty + horizon_fit[1]
-		# # plotx = horizon_fit[0]*ploty**2 + horizon_fit[1]*ploty + horizon_fit[2]
-
-		# if horizon_fit[0] > 0:
-		# 	plotx_offset = horizon_fit[0]*ploty + horizon_fit[1]-200
-		# else:
-		# 	plotx_offset = horizon_fit[0]*ploty + horizon_fit[1]+200
-
+		# Fit a second order polynomial to each
+		left_fit = np.polyfit(lefty, leftx, 1)
+		# Generate x and y values for plotting
+		plot_leftx = left_fit[0]*ploty + left_fit[1]
 	except:
-		print("ERROR: Function 'polyfit' failed!")
-		# horizon_fit = []
-		# plotx_offset = [0, 0]
-		# ploty = [0, 0]
-		# display = tmp
+		print("ERROR: Function 'polyfit' failed for LEFT SIDE!")
+		left_fit = [0, 0]
+		plot_leftx = [0, 0]
 		pass
 
+	# Try fitting polynomial to Right side
+	try:
+		# Fit a second order polynomial to each
+		right_fit = np.polyfit(righty, rightx, 1)
+		# Generate x and y values for plotting
+		plot_rightx = right_fit[0]*ploty + right_fit[1]
+	except:
+		print("ERROR: Function 'polyfit' failed for RIGHT SIDE!")
+		right_fit = []
+		plot_rightx = [0, 0]
+		pass
+
+	cv2.line(display_lines,(int(plot_leftx[0]),int(ploty[0])),(int(plot_leftx[-1]),int(ploty[-1])),(0,0,255))
+	cv2.line(display_lines,(int(plot_rightx[0]),int(ploty[0])),(int(plot_rightx[-1]),int(ploty[-1])),(255,0,0))
+
 	if flag_plot == True:
-		plt.figure(3)
+		plt.figure(4)
 		plt.clf()
-		plt.imshow(display)
+		plt.imshow(display_lines)
+		plt.plot(plot_leftx, ploty, color='yellow')
+		plt.plot(plot_rightx, ploty, color='yellow')
 		plt.xlim(0, w)
 		plt.ylim(h, 0)
 
-		# plt.figure(4)
-		# plt.clf()
-		# plt.plot(range(hist_right.shape[0]), hist_right[:,0])
-		# plt.plot(range(hist_right.shape[0]), hist_right[:,1])
-		# plt.plot(range(hist_right.shape[0]), hist_right[:,2])
-		# plt.figure(5)
-		# plt.clf()
-		# plt.plot(range(hist_left.shape[0]), hist_left[:,0])
-		# plt.plot(range(hist_left.shape[0]), hist_left[:,1])
-		# plt.plot(range(hist_left.shape[0]), hist_left[:,2])
 
-
-	# return left_fit, right_fit, left_lane_inds, right_lane_inds
+	return display_lines, display_windows #,left_fit, right_fit, left_lane_inds, right_lane_inds
 
 def find_line_by_previous(binary_warped,left_fit,right_fit):
     nonzero = binary_warped.nonzero()
@@ -264,7 +385,7 @@ def fitLine(points, row, col):
 def update_zhong(_img,y_intercept, _alpha=45.0, _beta=0.0,_gamma=0.0, _focal=500.0, _dist=500.0):
 	img = np.copy(_img)
 
-	tmp, M, Minv = zhong_warp(img, _alpha,_beta,_gamma, _focal,_dist)
+	tmp, M, Minv = warp_perspective_angles(img, _alpha,_beta,_gamma, _focal,_dist)
 
 	# tmp = img
 
@@ -334,7 +455,7 @@ def update_zhong(_img,y_intercept, _alpha=45.0, _beta=0.0,_gamma=0.0, _focal=500
 	# print tmp.shape
 	return tmp
 
-def zhong_warp(_img, _alpha=45.0, _beta=0.0,_gamma=0.0, _focal=500.0, _dist=500.0):
+def warp_perspective_angles(_img, _alpha=45.0, _beta=0.0,_gamma=0.0, _focal=500.0, _dist=500.0):
 	alpha = _alpha * np.pi / 180
 	beta = _beta * np.pi / 180
 	gamma = _gamma * np.pi / 180
@@ -402,7 +523,7 @@ def zhong_warp(_img, _alpha=45.0, _beta=0.0,_gamma=0.0, _focal=500.0, _dist=500.
 	warped = warped.astype(np.float32)
 	return warped, M, Minv
 
-def warp_perspective(_img):
+def warp_perspective_points(_img):
 
 	h, w, channels = _img.shape
 
@@ -427,3 +548,31 @@ def warp_perspective(_img):
 	warped = cv2.warpPerspective(_img, M, (w, h)) # Image warping
 
 	return warped, M, Minv
+
+def calculate_curv_and_pos(img,left_fit, right_fit):
+	# Define y-value where we want radius of curvature
+	ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
+	leftx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+	rightx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+	# Define conversions in x and y from pixels space to meters
+	ym_per_pix = 30/720 # meters per pixel in y dimension
+	xm_per_pix = 3.7/700 # meters per pixel in x dimension
+	y_eval = np.max(ploty)
+	# Fit new polynomials to x,y in world space
+	left_fit_cr = np.polyfit(ploty*ym_per_pix, leftx*xm_per_pix, 2)
+	right_fit_cr = np.polyfit(ploty*ym_per_pix, rightx*xm_per_pix, 2)
+	# Calculate the new radii of curvature
+	left_curverad = ((1 + (2*left_fit_cr[0]*y_eval*ym_per_pix + left_fit_cr[1])**2)**1.5) / np.absolute(2*left_fit_cr[0])
+	right_curverad = ((1 + (2*right_fit_cr[0]*y_eval*ym_per_pix + right_fit_cr[1])**2)**1.5) / np.absolute(2*right_fit_cr[0])
+
+	curvature = ((left_curverad + right_curverad) / 2)
+	#print(curvature)
+	lane_width = np.absolute(leftx[719] - rightx[719])
+	lane_xm_per_pix = 3.7 / lane_width
+	veh_pos = (((leftx[719] + rightx[719]) * lane_xm_per_pix) / 2.)
+	cen_pos = ((binary_warped.shape[1] * lane_xm_per_pix) / 2.)
+	distance_from_center = cen_pos - veh_pos
+
+	# angle = int(math.atan((y1-y2)/(x2-x1))*180/math.pi) # Random forum code snippet
+
+	return curvature,distance_from_center
