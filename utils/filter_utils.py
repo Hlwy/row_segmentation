@@ -50,35 +50,47 @@ def filter_green(_img, flag_invert=1, flip_order=None):
 
 	return res, comp_mask
 
-def filter_brown(_img, flip_order=None):
+def filter_brown(_img, use_test=True):
 	tmp = cv2.resize(_img, (640,480))
 	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
 	yuv = cv2.cvtColor(tmp,cv2.COLOR_BGR2YUV)
 
-	lower_yuv_brown = np.array([0, 0, 0]) # Original
-	# upper_yuv_brown = np.array([164, 126, 255]) #
-	upper_yuv_brown = np.array([164, 126, 126]) # Original
 
-	# lower_hsv_brown = np.array([32, 52, 24])
-	upper_hsv_brown = np.array([255, 255, 164]) # Original
-	lower_hsv_brown = np.array([32, 52, 118]) # Original
-	# upper_hsv_brown = np.array([255, 255, 255]) # Original
+	if use_test == True:
+		lower_yuv_brown = np.array([38, 134, 131])
+		upper_yuv_brown = np.array([195, 163, 150])
+
+		lower_hsv_brown = np.array([32, 52, 0])
+		upper_hsv_brown = np.array([107, 255, 255])
+	else:
+		lower_yuv_brown = np.array([0, 0, 0]) # Original
+		upper_yuv_brown = np.array([164, 126, 126]) # Original
+
+		upper_hsv_brown = np.array([255, 255, 164]) # Original
+		lower_hsv_brown = np.array([32, 52, 118]) # Original
+
 
 	mask_yuv = cv2.inRange(yuv, lower_yuv_brown, upper_yuv_brown)
-	_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY)
+	if use_test == False:
+		_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY)
+	else:
+		_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY_INV)
 	res_yuv = cv2.bitwise_and(tmp, tmp, mask = mask_yuv)
 
+
 	mask_hsv = cv2.inRange(hsv, lower_hsv_brown, upper_hsv_brown)
-	_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
+	if use_test == False:
+		_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
+	else:
+		_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
 	res_hsv = cv2.bitwise_and(tmp, tmp, mask = mask_hsv)
 
-	# if flag_invert == 0:
-	# 	comp_mask = mask_yuv | mask_hsv
-	# if flag_invert == 1:
-	# 	comp_mask = mask_yuv & mask_hsv
 
 	comp_mask = cv2.bitwise_and(mask_yuv,mask_hsv)
-	_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
+	if use_test == False:
+		_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
+	else:
+		_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
 	res = cv2.bitwise_and(tmp, tmp, mask = comp_mask)
 
 	return res, comp_mask
@@ -159,7 +171,6 @@ def filter_custom(_img, verbose=True):
 	# return res, comp_mask
 
 def add_green_mask(white_mask):
-
 	_mask = cv2.cvtColor(white_mask,cv2.COLOR_GRAY2BGR)
 	h, w, c = _mask.shape
 	green_mask = np.zeros((h,w,3), np.uint8)
@@ -167,3 +178,25 @@ def add_green_mask(white_mask):
 
 	res_mask = cv2.bitwise_and(green_mask, green_mask, mask = white_mask)
 	return res_mask
+
+def apply_morph(_img, ks=[5,5], shape=0, flag_open=False):
+	if shape == 0:
+		kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(int(ks[0]),int(ks[1])))
+	elif shape == 1:
+		kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(int(ks[0]),int(ks[1])))
+	else:
+		print("alternative structures here...")
+
+	blurred = cv2.medianBlur(_img, 7)
+	opening = cv2.morphologyEx(blurred,cv2.MORPH_OPEN,kernel)
+	closing = cv2.morphologyEx(blurred,cv2.MORPH_CLOSE,kernel)
+	cv2.imshow('Before Morphing',_img)
+	cv2.imshow('Blurred',blurred)
+	cv2.imshow('opened',opening)
+	cv2.imshow('closed',closing)
+
+	if flag_open == True:
+		out = opening
+	else:
+		out = closing
+	return out

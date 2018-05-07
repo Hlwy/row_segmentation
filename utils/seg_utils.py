@@ -280,3 +280,102 @@ def is_horizon_present(img, nrows=10, verbose=False, flag_plot=False):
 		plt.plot(range(hist_left.shape[0]), hist_left[:,2])
 
 	return flag
+
+
+def strip_image(_img, nstrips=48, horizontal_strips=True):
+	h,w,c = _img.shape
+
+	if horizontal_strips == True:
+		strip_widths = h // nstrips
+		strips = [_img[(strip_number*strip_widths):((strip_number+1)*strip_widths-1), :] for strip_number in range(nstrips)]
+	else:
+		strip_widths = w // nstrips
+		strips = [_img[:, (strip_number*strip_widths):((strip_number+1)*strip_widths-1)] for strip_number in range(nstrips)]
+	return strips
+
+
+def histogram_strips(_img, nstrips=48, horizontal_strips=True):
+	h,w,c = _img.shape
+	# print _img.shape
+
+	if horizontal_strips == True:
+		strip_widths = h // nstrips
+		strips = [_img[(strip_number*strip_widths):((strip_number+1)*strip_widths-1), :] for strip_number in range(nstrips)]
+	else:
+		strip_widths = w // nstrips
+		strips = [_img[:, (strip_number*strip_widths):((strip_number+1)*strip_widths-1)] for strip_number in range(nstrips)]
+	centersx = []
+	centersy = []
+	left_failed = False
+	right_failed = False
+	left_max = 0
+	right_max = 0
+
+	global plt
+	plt.figure(4)
+	plt.clf()
+	plt.title('Histogram of Horizontal Strips')
+	for strip_number in range(nstrips):
+		hists = horizontal_hist(strips[strip_number])
+		# hists = hists // hists.shape[0]
+		hists = histogram_sliding_filter(hists, 64)
+		# print hists.shape[0]
+
+		midpoint = np.int(hists.shape[0]//2)
+
+		try:
+			leftx_base = np.argmax(hists[:midpoint])
+			left_max = np.max(hists[:midpoint])
+		except:
+			leftx_base = 0
+			left_max = 0
+			pass
+
+		try:
+			rightx_base = np.argmax(hists[midpoint:]) + midpoint
+			right_max = np.max(hists[midpoint:])
+		except:
+			rightx_base = w
+			right_max = 0
+			pass
+
+		# right_failed = True
+		# left_failed = True
+
+		# if((right_failed == True) and (left_failed == True)):
+		if((right_max == 0) or (left_max == 0)):
+			print("No maximums found for either side skipping")
+			continue
+		else:
+			new_midpoint = (leftx_base + rightx_base) // 2
+			# print("New Midpoint @ " + str(new_midpoint) + " X-Pixel")
+			centersy.append(strip_widths * (strip_number + 1))
+			centersx.append(new_midpoint)
+
+		plt.subplot(nstrips,1,strip_number+1)
+		plt.title('Strip #' + str(strip_number))
+		plt.plot(range(hists.shape[0]), hists[:,0])
+		plt.plot(range(hists.shape[0]), hists[:,1])
+		plt.plot(range(hists.shape[0]), hists[:,2])
+
+		# image_strip = image_edit[(strip_number*strip_height):((strip_number+1)*strip_height-1), :]
+		# cv2.imshow(str(strip_number), strips[strip_number])
+	centersx = np.asarray(centersx)
+	centersy = np.asarray(centersy)
+	# print centers.shape
+
+	plt.figure(5)
+	plt.clf()
+	plt.imshow(_img)
+	# xs = range(centers.shape[0])
+	# dxs = [x * strip_widths for x in xs]
+	# # dxs = xs, [strip_widths])
+	# print dxs
+	plt.scatter(centersx, centersy, color='red')
+	plt.xlim(0, w)
+	plt.ylim(h, 0)
+
+	# print centersx
+	# print centersy
+
+	return centersx, centersy

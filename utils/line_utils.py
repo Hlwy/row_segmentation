@@ -9,8 +9,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 import os
 import cv2
-import seg_utils as sut
 import math
+import random
 
 class Point:
 	def __init__(self, x, y):
@@ -69,8 +69,31 @@ class Line():
                 self.detected=True
                 self.recent_fitted.append(fit)
 
+def run_ransac(data, estimate, is_inlier, sample_size, goal_inliers, max_iterations, stop_at_goal=True, random_seed=None):
+	best_ic = 0
+	best_model = None
+	random.seed(random_seed)
+	for i in xrange(max_iterations):
+		s = random.sample(data, int(sample_size))
+		m = estimate(s)
+		ic = 0
+		for j in xrange(len(data)):
+			if is_inlier(m, data[j]):
+				ic += 1
 
-def find_line(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, flag_manual=False, flag_plot_hists=False):
+		# print s
+		# print 'estimate:', m,
+		# print '# inliers:', ic
+
+		if ic > best_ic:
+			best_ic = ic
+			best_model = m
+			if ic > goal_inliers and stop_at_goal:
+				break
+	# print 'took iterations:', i+1, 'best model:', best_model, 'explains:', best_ic
+	return best_model, best_ic
+
+def find_line_exp(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, flag_manual=False, flag_plot_hists=False):
 	tmp = cv2.resize(img, (640,480))
 	display_windows = np.copy(tmp)
 	display_lines = np.copy(tmp)
@@ -79,12 +102,8 @@ def find_line(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, f
 	h_final = 15
 	w_final = 30
 
-	# Good for linear decaying window size
-	# xbuf=40
- 	# ybuf=50
-
 	xbuf=margins[0]
- 	ybuf=margins[1]
+	ybuf=margins[1]
 
 	# # Look at the first 1/8 of both the image's sides
 	# rows_right = tmp[:,(7*w)//8:]
@@ -110,10 +129,7 @@ def find_line(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, f
 		plt.plot(range(hist_right.shape[0]), hist_right[:,1])
 		plt.plot(range(hist_right.shape[0]), hist_right[:,2])
 
-	lefty_base = 0
-	righty_base = 0
 	eps=300
-
 	flag_found = False
 	for i in range(h-1,-1,-1):
 		if flag_found == False:
@@ -142,11 +158,7 @@ def find_line(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, f
 	# Set height of windows
 	height_base = ybuf
 	width_base = xbuf
-	# height_base = np.int(h/nwindows)
-	# width_base = np.int(w/nwindows)
 
-	dheight = (h_final - height_base) / float(nwindows)
-	dwidth = (w_final - width_base) / float(nwindows)
 	window_height_l = height_base
 	window_width_l = width_base
 	window_height_r = height_base
@@ -285,7 +297,6 @@ def find_line(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, f
 			righty_current = righty_current - dy*window_height_r
 			# print("[Right]---Not enough good pixels moving window center up: " + str(rightx_current) + ", " + str(righty_current))
 
-
 		if flag_manual == True:
 			cv2.imshow("Lines Found", display_windows)
 			while True:
@@ -344,6 +355,103 @@ def find_line(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, f
 
 
 	return display_lines, display_windows #,left_fit, right_fit, left_lane_inds, right_lane_inds
+
+
+def find_line_test(img, horizon_y, margins=[150,75]):
+	tmp = cv2.resize(img, (640,480))
+	display_windows = np.copy(tmp)
+	display_lines = np.copy(tmp)
+	h, w, c = tmp.shape
+
+	h_final = 15
+	w_final = 30
+
+	xbuf=margins[0]
+	ybuf=margins[1]
+
+	# # Look at the first 1/8 of both the image's sides
+	# rows_right = tmp[:,(7*w)//8:]
+	# rows_left = tmp[:,0:w//8]
+	# Look at the first 1/4 of both the image's sides
+	rows_right = tmp[:,(3*w)//4:]
+	rows_left = tmp[:,0:w//4]
+
+	hist_right = np.sum(rows_right, axis=1)
+	hist_left = np.sum(rows_left, axis=1)
+
+	if flag_plot_hists == True:
+		plt.figure(5)
+		plt.clf()
+		plt.subplot(1,2,1)
+		plt.title("Histogram: Left Side of the Image")
+		plt.plot(range(hist_left.shape[0]), hist_left[:,0])
+		plt.plot(range(hist_left.shape[0]), hist_left[:,1])
+		plt.plot(range(hist_left.shape[0]), hist_left[:,2])
+		plt.subplot(1,2,2)
+		plt.title("Histogram: Right Side of the Image")
+		plt.plot(range(hist_right.shape[0]), hist_right[:,0])
+		plt.plot(range(hist_right.shape[0]), hist_right[:,1])
+		plt.plot(range(hist_right.shape[0]), hist_right[:,2])
+
+	eps=300
+	flag_found = False
+	lefty_base = 0
+	righty_base = 0
+	for i in range(h-1,-1,-1):
+		if flag_found == False:
+			tmpPixL = hist_left[i,1]
+			if tmpPixL > eps:
+				lefty_base = i
+				flag_found = True
+				# print("Left Line: Starting Pixel Found @ i = " + str(i))
+				# print("Left Line: Histogram Value @ " + str(lefty_base) + ": " + str(tmpPixL))
+
+	flag_found = False
+	for i in range(h-1,-1,-1):
+		if flag_found == False:
+			tmpPixR = hist_right[i,1]
+			if tmpPixR > eps:
+				righty_base = i
+				flag_found = True
+				# print("Right Line: Starting Pixel Found @ i = " + str(i))
+				# print("Right Line: Histogram Value @ " + str(righty_base) + ": " + str(tmpPixR))
+
+	lefty_base = lefty_base - 20
+	righty_base = righty_base - 20
+	# print("Left Base Y Pixel Found @ " + str(lefty_base))
+	# print("Right Base Y Pixel Found @ " + str(righty_base))
+
+	# Set height of windows
+	height_base = ybuf
+	width_base = xbuf
+	# print("Window Size: " + str(height_base) + ", " + str(width_base))
+
+	leftx_base = 0 #+ window_width
+	rightx_base = w #- window_width
+
+	# Identify the x and y positions of all nonzero pixels in the image
+	nonzero = tmp.nonzero()
+	nonzeroy = np.array(nonzero[0])
+	nonzerox = np.array(nonzero[1])
+	# Current positions to be updated for each window
+	leftx_current = leftx_base
+	lefty_current = lefty_base
+	rightx_current = rightx_base
+	righty_current = righty_base
+
+
+	if flag_plot == True:
+		plt.figure(4)
+		plt.clf()
+		plt.imshow(display_lines)
+		plt.plot(plot_leftx, ploty, color='yellow')
+		plt.plot(plot_rightx, ploty, color='yellow')
+		plt.xlim(0, w)
+		plt.ylim(h, 0)
+
+
+	return display_lines, display_windows
+
 
 def find_line_by_previous(binary_warped,left_fit,right_fit):
     nonzero = binary_warped.nonzero()

@@ -12,22 +12,6 @@ import os
 import cv2
 
 
-def strip_process(image_edit, n_strips=10):
-
-	height = len(image_edit)
-	width = len(image_edit[0])
-
-	strip_height = height / n_strips
-	crop_points = np.zeros((height, width), dtype=np.uint8)
-
-	strips = [image_edit[(strip_number*strip_height):((strip_number+1)*strip_height-1), :] for strip_number in range(n_strips)]
-	for strip_number in range(n_strips):
-		# image_strip = image_edit[(strip_number*strip_height):((strip_number+1)*strip_height-1), :]
-		cv2.imshow(str(strip_number), strips[strip_number])
-
-	return strips
-
-
 def draw_area(undist,binary_warped,Minv,left_fit, right_fit):
     # Generate x and y values for plotting
     ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )

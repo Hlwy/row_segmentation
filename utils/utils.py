@@ -7,9 +7,9 @@
 # 	TODO
 
 import numpy as np
-import Image
 import os
 import cv2
+import csv
 
 #get all image in the given directory persume that this directory only contain image files
 def get_images_by_dir(dirname):
@@ -18,64 +18,68 @@ def get_images_by_dir(dirname):
     imgs = [cv2.imread(path) for path in img_paths]
     return imgs, img_paths
 
-def cycle_through_images(key, _imgs, index):
+def cycle_through_images(key, _imgs, _paths, index, flags=[False]):
 	n = len(_imgs)
+	_flag = False
+	post_recording_step = flags[0]
 
-	if key == ord('p'):
+	if key == ord('p') or post_recording_step == True:
 		index = index + 1
 		if index >= n:
 			index = 0
-		print 'Next Image...'
+		_flag = True
+		print('Next Image...')
 	if key == ord('o'):
 		index = index - 1
-		if index <= 0:
+		if index < 0:
 			index = n - 1
-		print 'Previous Image...'
+		_flag = True
+		print('Previous Image...')
 
 	new_img = np.copy(_imgs[index])
-	return new_img, index
+	new_img_path = _paths[index]
+	return new_img, new_img_path, index, _flag
 
 def cycle_through_filters(key, index, max_index=2):
 	if key == ord('l'):
 		index += 1
 		if index >= max_index:
 			index = 0
-		print 'Next Filter...'
+		print('Next Filter...')
 	if key == ord('k'):
 		index -= 1
 		if index < 0:
 			index = max_index - 1
-		print 'Previous Filter...'
+		print('Previous Filter...')
 
 	filter_index = index
 	return filter_index
 
 
-def fig2data(fig):
-	"""
-	@brief Convert a Matplotlib figure to a 4D numpy array with RGBA channels and return it
-	@param fig a matplotlib figure
-	@return a numpy 3D array of RGBA values
-	"""
-	# draw the renderer
-	fig.canvas.draw()
+def export_list2csv(_path, _file, _headers, _datalist):
 
-	# Get the RGBA buffer from the figure
-	w,h = fig.canvas.get_width_height()
-	buf = numpy.fromstring(fig.canvas.tostring_argb(), dtype=numpy.uint8)
-	buf.shape = (w, h,4)
 
-	# canvas.tostring_argb give pixmap in ARGB mode. Roll the ALPHA channel to have it in RGBA mode
-	buf = numpy.roll(buf, 3, axis = 2)
-	return buf
+	if not os.path.exists(str(_path)):
+		print("Target output directory [" + str(_path) + "] does not exist --> MAKING IT NOW")
+		os.makedirs(_path)
 
-def fig2img(fig):
-	"""
-	@brief Convert a Matplotlib figure to a PIL Image in RGBA format and return it
-	@param fig a matplotlib figure
-	@return a Python Imaging Library ( PIL ) image
-	"""
-	# put the figure pixmap into a numpy array
-	buf = fig2data(fig)
-	w, h, d = buf.shape
-	return Image.fromstring("RGBA",(w ,h), buf.tostring( ))
+	csvFile = str(_path) + "/" + str(_file) + ".csv"
+
+	with open(csvFile, "w") as output:
+		writer = csv.writer(output, lineterminator='\n')
+		writer.writerow(_headers)
+
+		for row in range(len(_datalist)):
+			tmpData = _datalist[row]
+			writer.writerow(tmpData)
+
+
+	print("	Data exporting to ...")
+
+def import_csv2list(_filepath):
+	data = []
+	with open(_filepath, 'rb') as sd:
+		r = csv.DictReader(sd)
+		for line in r:
+			data.append(line)
+	return data

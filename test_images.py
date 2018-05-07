@@ -34,36 +34,50 @@ from utils import filter_utils as fut
 from utils import seg_utils as sut
 from utils import line_utils as lut
 
+def augment(xys):
+	axy = np.ones((len(xys), 3))
+	axy[:, :2] = xys
+	return axy
+
+def estimate(xys):
+	axy = augment(xys[:2])
+	return np.linalg.svd(axy)[-1][-1, :]
+
+def is_inlier(coeffs, xy, threshold):
+	return np.abs(coeffs.dot(augment([xy]).T)) < threshold
+
+def test_ransac_line_fit(img):
+
+	n = 100
+	max_iterations = 100
+	goal_inliers = n * 0.3
+
+	# test data
+	xys = np.random.random((n, 2)) * 10
+	xys[:50, 1:] = xys[:50, :1]
+
+	pylab.scatter(xys.T[0], xys.T[1])
+
+	# RANSAC
+	m, b = lut.run_ransac(xys, estimate, lambda x, y: is_inlier(x, y, 0.01), goal_inliers, max_iterations, 20)
+	a, b, c = m
+	plt.plot([0, 10], [-c/b, -(c+10*a)/b], color=(0, 1, 0))
+
 def update(img):
 	global plt
 
-	_img = cv2.resize(img, (640,480))
+	# duration = 0
+	start = time()
 
-	# fut.filter_custom(_img)
+	_img = cv2.resize(img, (640,480))
 
 	horizon_present = sut.is_horizon_present(_img)
 	filtered_img, _ = update_filter(_img)
 
+	# fut.filter_custom(_img)
+	tmpFil = fut.apply_morph(filtered_img)
+	strips = sut.histogram_strips(filtered_img)
 
-	# vhist = sut.vertical_hist(img)
-	# hist = sut.histogram_sliding_filter(vhist)
-	# plt.plot(range(hist.shape[0]), hist[:,0])
-	# plt.plot(range(hist.shape[0]), hist[:,1])
-	# plt.plot(range(hist.shape[0]), hist[:,2])
-	# minypix = sut.find_horizon_simple(hist[:,1])
-	#
-	# clipped = sut.crop_below_pixel(img, minypix)
-	# white = np.ones((clipped.shape[0], clipped.shape[1],3), dtype=np.uint8)*255
-	# black = np.zeros((minypix, clipped.shape[1],3), dtype=np.uint8)
-	# mask = np.vstack((black,white))
-	# mask = cv2.cvtColor(mask,cv2.COLOR_BGR2GRAY)
-	# normImg = cv2.bitwise_and(img,img,mask = mask)
-	#
-	# # display = ut.update_zhong(normImg,0, 45.0,0.0,0.0,640.0,525.0)
-	# display = lut.update_zhong(normImg,0, 53.0,0.0,0.0,555.0,577.0)
-	#
-	# cv2.imshow("Clipped Lines", display)
-	# cv2.imshow("Normalized Image", normImg)
 
 	if horizon_present == True:
 		horizon_fit, horizon_inds, horizon_filtered, horizon_display = sut.find_horizon(filtered_img)
@@ -72,16 +86,25 @@ def update(img):
 		horizon_filtered = filtered_img
 		horizon_display = filtered_img
 
-	disp,_ = lut.find_line(horizon_filtered)
-	cv2.imshow("Lines Found", disp)
+	disp_lines, disp_windows = lut.find_line_exp(horizon_filtered)
+	cv2.imshow("Lines Found", disp_lines)
+	# cv2.imshow("Windows Used To Find Lines", disp_windows)
 
-	tmp_disp = np.copy(horizon_filtered)
-	lines = tmp_disp
+	# tmp_disp = np.copy(horizon_filtered)
+	# lines = tmp_disp
 	# lines = lut.update_zhong(tmp_disp,0, 53.0,0.0,0.0,555.0,577.0)
-
 	# cv2.imshow("Row Lines", lines)
-	return lines
 
+	duration = time() - start
+	# print("Processing Duration: " + str(duration))
+
+	return disp_lines
+
+
+def color_filter(img):
+	res,mask = fut.filter_brown(img)
+	filtered_img = cv2.bitwise_and(img, img, mask = mask)
+	return filtered_img
 
 def update_filter(img, verbose=False):
 	global filter_index, mask_flag, use_raw
@@ -157,7 +180,7 @@ if __name__ == "__main__" :
 			i = i + 1
 			if i >= n:
 				i = 0
-			print 'Next Image...'
+			print('Next Image...')
 			new_img = np.copy(_imgs[i])
 			clone = cv2.resize(new_img, (640,480))
 			post_img = update(new_img)
@@ -166,7 +189,7 @@ if __name__ == "__main__" :
 			i = i - 1
 			if i < 0:
 				i = n - 1
-			print 'Previous Image...'
+			print('Previous Image...')
 			new_img = np.copy(_imgs[i])
 			clone = cv2.resize(new_img, (640,480))
 			post_img = update(new_img)
@@ -180,31 +203,29 @@ if __name__ == "__main__" :
 			break
 		if key == ord('j'):
 			mask_flag = not mask_flag
-			print 'Switching Color Mask...'
+			print('Switching Color Mask...')
 		if key == ord('r'):
 			use_raw = not use_raw
-			print 'Switching to/from Raw image...'
+			print('Switching to/from Raw image...')
 
 		# Update new variables
 		filter_index = ut.cycle_through_filters(key,filter_index)
-		# new_img, i = ut.cycle_through_images(key, _imgs, i)
+		# new_img, new_path, i, flag_new_img = ut.cycle_through_images(key, _imgs, _paths, i)
 		cur_img = cv2.resize(clone, (640,480))
 		# clone = cv2.resize(new_img, (640,480))
 
 		cv2.imshow("image", cur_img)
 
 		if flag_play == True:
-
+			print("Possible RANSAC Test Section")
 			# start = time()
 			# filtered_img = update_filter(cur_img)
 			# post_img = update(filtered_img)
 			# out_img = post_img.astype(np.uint8)
-			cv2.imshow("Filtered Image", filtered_img)
+			# cv2.imshow("Filtered Image", filtered_img)
 			# plt.show()
 			# plt.pause(0.001)
-			# duration += time() - start
-			# count += 1
-			# print ("FPS: {}".format(count / duration))
+
 
 		# cv2.imshow("image", cur_img)
 		# plt.imshow(display)
