@@ -58,13 +58,15 @@ def cycle_through_filters(key, index, max_index=2):
 
 def export_list2csv(_path, _file, _headers, _datalist):
 
+	filenames = os.path.split(_file)
+	filename = filenames[-1]
+	print(filename)
 
 	if not os.path.exists(str(_path)):
 		print("Target output directory [" + str(_path) + "] does not exist --> MAKING IT NOW")
 		os.makedirs(_path)
 
-	csvFile = str(_path) + "/" + str(_file) + ".csv"
-
+	csvFile = str(_path) + "/" + str(filename) + ".csv"
 	with open(csvFile, "w") as output:
 		writer = csv.writer(output, lineterminator='\n')
 		writer.writerow(_headers)
@@ -83,3 +85,14 @@ def import_csv2list(_filepath):
 		for line in r:
 			data.append(line)
 	return data
+
+def add_filename_prefixs(_dir, _prefix):
+	filenames = os.listdir(_dir)
+	os.chdir(_dir)
+	for file in filenames:
+		newName = str(_prefix) + "_" + str(file)
+		os.rename(file, newName)
+		# print(file)
+		# print(newName)
+	# print(filenames)
+	print("Finished")

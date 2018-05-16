@@ -22,7 +22,6 @@ import numpy as np
 import utils
 import filter_utils as fut
 
-
 def onChange(pos):
 	global img
 	global _imgs

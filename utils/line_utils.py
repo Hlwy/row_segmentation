@@ -6,6 +6,7 @@
 # Current Recommended Usage: (in terminal)
 # 	TODO
 from matplotlib import pyplot as plt
+from sklearn import linear_model, datasets
 import numpy as np
 import os
 import cv2
@@ -92,6 +93,81 @@ def run_ransac(data, estimate, is_inlier, sample_size, goal_inliers, max_iterati
 				break
 	# print 'took iterations:', i+1, 'best model:', best_model, 'explains:', best_ic
 	return best_model, best_ic
+
+def augment(xys):
+	axy = np.ones((len(xys), 3))
+	axy[:, :2] = xys
+	return axy
+
+def estimate(xys):
+	axy = augment(xys[:2])
+	return np.linalg.svd(axy)[-1][-1, :]
+
+def is_inlier(coeffs, xy, threshold):
+	return np.abs(coeffs.dot(augment([xy]).T)) < threshold
+
+def test_ransac_line_fit(img):
+
+	n = 100
+	max_iterations = 100
+	goal_inliers = n * 0.3
+
+	# test data
+	xys = np.random.random((n, 2)) * 10
+	xys[:50, 1:] = xys[:50, :1]
+
+	pylab.scatter(xys.T[0], xys.T[1])
+
+	# RANSAC
+	m, b = lut.run_ransac(xys, estimate, lambda x, y: is_inlier(x, y, 0.01), goal_inliers, max_iterations, 20)
+	a, b, c = m
+	plt.plot([0, 10], [-c/b, -(c+10*a)/b], color=(0, 1, 0))
+
+def ransac_meth2(img):
+	tmp = np.copy(img)
+	display_lines = np.copy(img)
+	h,w,c = img.shape
+	beg = w/2; end = w
+	# print(beg,end)
+
+	# Crop the image into two halves
+	img_right = img[:,beg:end]
+	img_left = img[:,0:beg]
+
+	# cv2.imshow("Cropped Right", img_right)
+	# cv2.imshow("Cropped Left", img_left)
+
+	nonzero_left = img_left.nonzero()
+	nonzeroy_left = np.array(nonzero_left[0]).reshape(-1,1)
+	nonzerox_left = np.array(nonzero_left[1]).reshape(-1,1)
+
+	nonzero_right = img_right.nonzero()
+	nonzeroy_right = np.array(nonzero_right[0]).reshape(-1,1)
+	nonzerox_right = np.array(nonzero_right[1]).reshape(-1,1)
+
+	# Robustly fit linear model with RANSAC algorithm
+	ransacL = linear_model.RANSACRegressor()
+	ransacR = linear_model.RANSACRegressor()
+	ransacL.fit(nonzerox_left, -nonzeroy_left)
+	ransacR.fit(nonzerox_right, -nonzeroy_right)
+	inlier_maskL = ransacL.inlier_mask_
+	inlier_maskR = ransacR.inlier_mask_
+	outlier_maskL = np.logical_not(inlier_maskL)
+	outlier_maskR = np.logical_not(inlier_maskR)
+	# Predict data of estimated models
+	line_xL = np.arange(nonzerox_left.min(), nonzerox_left.max())[:, np.newaxis]
+	line_xR = np.arange(nonzerox_right.min(), nonzerox_right.max())[:, np.newaxis]
+	line_yL = ransacL.predict(line_xL)
+	line_yR = ransacR.predict(line_xR)
+
+	cv2.line(display_lines,(int(line_xR[0]+beg),int(-line_yR[0])),(int(line_xR[-1]+beg),int(-line_yR[-1])),(0,0,255))
+	cv2.line(display_lines,(int(line_xL[0]),int(-line_yL[0])),(int(line_xL[-1]),int(-line_yL[-1])),(255,0,0))
+
+	# print("Estimated coefficients (true, linear regression, RANSAC):")
+	# print(ransac.estimator_.coef_)
+	# return line_X, line_y_ransac
+	return display_lines, line_yL
+
 
 def find_line_exp(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, flag_manual=False, flag_plot_hists=False):
 	tmp = cv2.resize(img, (640,480))

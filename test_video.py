@@ -36,9 +36,17 @@ def update(img):
 		horizon_filtered = filtered_img
 		horizon_display = filtered_img
 
-	display,_ = lut.find_line(horizon_filtered)
-	cv2.imshow("Lines Found", display)
-
+	# Thresholding
+	grey = cv2.cvtColor(horizon_filtered,cv2.COLOR_BGR2GRAY)
+	_, mask = cv2.threshold(grey, 150, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+	res = cv2.bitwise_and(horizon_filtered, horizon_filtered, mask = mask)
+	try:
+		display,_ = lut.ransac_meth2(res)
+		cv2.imshow("Lines Found", display)
+	except:
+		print("ERROR: Couldn't find lines")
+		pass
+		display = horizon_filtered
 	# cv2.imshow("Clipped Lines", display)
 	return display
 
@@ -75,14 +83,17 @@ if __name__ == "__main__" :
 	# Setup commandline argument(s) structures
 	ap = argparse.ArgumentParser(description='Image Segmentation')
 	ap.add_argument("--pic", "-p", type=str, default='test', metavar='FILE', help="Name of video file to parse")
+	ap.add_argument("--out", "-o", type=str, default='test', metavar='FILE', help="Name of video file to parse")
 	# Store parsed arguments into array of variables
 	args = vars(ap.parse_args())
 
 	# Extract stored arguments array into individual variables for later usage in script
 	_img = args["pic"]
+	_outputFile = args["out"]
 	_imgs, _ = ut.get_images_by_dir(_img)
 	img = _imgs[0]	# Input video file as OpenCV VideoCapture device
-	video_path = '/home/hunter/data/vids/1/VID_20170426_145010.mp4'
+	# video_path = '/home/hunter/data/vids/early_season/1/VID_20170426_145010.mp4'
+	video_path = '/home/hunter/data/vids/late_season/weeds_in_row/july5-2017/1/2video0.avi'
 
 	# create trackbars for color change
 	cv2.namedWindow('image')
@@ -96,7 +107,7 @@ if __name__ == "__main__" :
 	cap = cv2.VideoCapture(video_path)
 	assert(cap.isOpened())
 	fourcc = cv2.VideoWriter_fourcc(*'XVID')
-	writer = cv2.VideoWriter("/home/hunter/data/outputs/vids/visual_nav.avi", fourcc, 28.0, (640,480))
+	writer = cv2.VideoWriter("/home/hunter/data/outputs/vids/visual_nav_" + str(_outputFile) + ".avi", fourcc, 28.0, (640,480))
 
 	i = 0
 	n = len(_imgs)
@@ -149,9 +160,6 @@ if __name__ == "__main__" :
 				writer.write(out_img)
 			cap.release()
 			writer.release()
-		# cv2.imshow("image", cur_img)
-		# plt.imshow(display)
-		# plt.show()
-		# plt.pause(0.001)
+
 
 	cv2.destroyAllWindows()

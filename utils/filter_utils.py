@@ -95,7 +95,7 @@ def filter_brown(_img, use_test=True):
 
 	return res, comp_mask
 
-def filter_custom(_img, verbose=True):
+def filter_custom(_img, verbose=True,plot_histograms=False):
 	tmp = cv2.resize(_img, (640,480))
 	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
 	yuv = cv2.cvtColor(tmp,cv2.COLOR_BGR2YUV)
@@ -121,11 +121,14 @@ def filter_custom(_img, verbose=True):
 
 	upper_yuv = np.array([int(hist_yuv[imax_yuv[0],0]),int(hist_yuv[imax_yuv[1],1]),int(hist_yuv[imax_yuv[2],2])])
 	lower_yuv = np.array([int(hist_yuv[imin_yuv[0],0]),int(hist_yuv[imin_yuv[1],1]),int(hist_yuv[imin_yuv[2],2])])
-	# lower_yuv = np.array([0, 0, 0])
+
+	upper_yuv = np.array([int(hist_yuv[imin_yuv[0],0]),int(hist_yuv[imin_yuv[1],1]),int(hist_yuv[imin_yuv[2],2])])
+	lower_yuv = np.array([0, 0, 0])
 
 	upper_hsv = np.array([int(hist_hsv[imax_hsv[0],0]),int(hist_hsv[imax_hsv[1],1]),int(hist_hsv[imax_hsv[2],2])])
 	lower_hsv = np.array([int(hist_hsv[imin_hsv[0],0]),int(hist_hsv[imin_hsv[1],1]),int(hist_hsv[imin_hsv[2],2])])
-	# upper_hsv = np.array([255, 255, 164])
+
+	upper_hsv = np.array([255, 255, 164])
 
 	if verbose == True:
 		print("	Upper YUV: " + str(upper_yuv))
@@ -133,7 +136,7 @@ def filter_custom(_img, verbose=True):
 		print("	Upper HSV: " + str(upper_hsv))
 		print("	Lower HSV: " + str(lower_hsv))
 
-	if verbose == True:
+	if plot_histograms == True:
 		plt.figure(6)
 		plt.clf()
 		plt.subplot(1,2,1)
@@ -156,8 +159,8 @@ def filter_custom(_img, verbose=True):
 	_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
 	res_hsv = cv2.bitwise_and(tmp, tmp, mask = mask_hsv)
 
-	# cv2.imshow("YUV Mask",mask_yuv)
-	# cv2.imshow("HSV Mask",mask_hsv)
+	cv2.imshow("YUV Mask",mask_yuv)
+	cv2.imshow("HSV Mask",mask_hsv)
 
 	# if flag_invert == 0:
 	# 	comp_mask = mask_yuv | mask_hsv
@@ -179,7 +182,7 @@ def add_green_mask(white_mask):
 	res_mask = cv2.bitwise_and(green_mask, green_mask, mask = white_mask)
 	return res_mask
 
-def apply_morph(_img, ks=[5,5], shape=0, flag_open=False):
+def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=False):
 	if shape == 0:
 		kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(int(ks[0]),int(ks[1])))
 	elif shape == 1:
@@ -190,10 +193,11 @@ def apply_morph(_img, ks=[5,5], shape=0, flag_open=False):
 	blurred = cv2.medianBlur(_img, 7)
 	opening = cv2.morphologyEx(blurred,cv2.MORPH_OPEN,kernel)
 	closing = cv2.morphologyEx(blurred,cv2.MORPH_CLOSE,kernel)
-	cv2.imshow('Before Morphing',_img)
-	cv2.imshow('Blurred',blurred)
-	cv2.imshow('opened',opening)
-	cv2.imshow('closed',closing)
+	if flag_show == True:
+		cv2.imshow('Before Morphing',_img)
+		cv2.imshow('Blurred',blurred)
+		cv2.imshow('opened',opening)
+		cv2.imshow('closed',closing)
 
 	if flag_open == True:
 		out = opening

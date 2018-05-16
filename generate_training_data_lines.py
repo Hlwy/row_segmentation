@@ -33,7 +33,7 @@ if __name__ == "__main__" :
 	# Setup commandline argument(s) structures
 	ap = argparse.ArgumentParser(description='Image Segmentation')
 	ap.add_argument("--images_path", "-i", type=str, metavar='FILE', default='test', help="Name of video file to parse")
-	ap.add_argument("--output_file", "-n", type=str, metavar='NAME', default='exported_training_log', help="Name of output file containing information about parsed video")
+	ap.add_argument("--output_file", "-n", type=str, metavar='NAME', default='training_log', help="Name of output file containing information about parsed video")
 	ap.add_argument("--output_path", "-p", type=str, metavar='FILE', default='exported', help="Name of video file to parse")
 	# Store parsed arguments into array of variables
 	args = vars(ap.parse_args())
@@ -42,6 +42,8 @@ if __name__ == "__main__" :
 	imgDir = args["images_path"]
 	outName = args["output_file"]
 	outDir = args["output_path"]
+
+	outName = str(imgDir) + "_" + str(outName)
 	# outDir = os.getcwd() + "/" + str(outDir)
 	print("	Output Directory:			" + os.getcwd() + "/" + str(outDir))
 
@@ -59,8 +61,9 @@ if __name__ == "__main__" :
 	plt.ion()
 
 	# Initialize miscellaneous parameters
-	i = 0; n = len(_imgs)
-	csvHeaders = ["Local Image Path", "Slope - Left", "Intercept - Left", "Slope - Right", "Intercept - Right"]
+	i = 0; n = len(_imgs); count_record = 0
+	# csvHeaders = ["Local Image Path", "Slope - Left", "Intercept - Left", "Slope - Right", "Intercept - Right"]
+	csvHeaders = ["image", "mLeft", "bLeft", "mRight", "bRight"]
 	csvList = []
 
 	# Random variables used for quick debugging
@@ -87,7 +90,9 @@ if __name__ == "__main__" :
 			tmpData = [new_path, left_fit[0], left_fit[1], right_fit[0], right_fit[1]]
 			csvList.append(tmpData)
 			flag_recorded = True
-			print("----- Storing Currently Chosen Parameters....")
+			count_record += 1
+			# print("----- Storing Currently Chosen Parameters....")
+			print("Data Recording ----- " + str(count_record) + " entries recorded")
 		if key == ord('c'):
 			left_xs = []
 			left_ys = []
