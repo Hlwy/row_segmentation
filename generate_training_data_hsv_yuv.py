@@ -70,6 +70,8 @@ def onChange(pos):
 	cv2.imshow('white mask',mask_yuv)
 	# cv2.imshow('white filtered',res_yuv)
 
+	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
+
 	lower_hsv = np.array([hmin, smin, vmin])
 	upper_hsv = np.array([hmax, smax, vmax])
 	mask_hsv = cv2.inRange(hsv, lower_hsv, upper_hsv)
@@ -179,14 +181,14 @@ if __name__ == "__main__" :
 
 			print('Next Image ------ ' + str(_img_names[i]))
 			tmp = cv2.resize(_imgs[i], (640,480))
-			fut.filter_custom(tmp)
+			# fut.filter_custom(tmp)
 		if key == ord('o'):
 			i = i - 1
 			if i < 0:
 				i = n - 1
 			print('Previous Image ------ ' + str(_img_names[i]))
 			tmp = cv2.resize(_imgs[i], (640,480))
-			fut.filter_custom(tmp)
+			# fut.filter_custom(tmp)
 
 		cv2.imshow("image", tmp)
 	cv2.destroyAllWindows()

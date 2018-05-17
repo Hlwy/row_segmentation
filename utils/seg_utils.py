@@ -43,7 +43,21 @@ def vertical_hist(_img, method=0):
 	return hist
 
 
-def histogram_sliding_filter(hist, window_size=16):
+def custom_hist(_img, rows=[0,0], cols=[0,0], axis=0,flag_plot=False):
+	# Take a histogram of the whole image
+	hist = np.sum(_img[rows[0]:rows[1],cols[0]:cols[1]], axis=axis)
+
+	if flag_plot == True:
+		plt.figure(1)
+		plt.clf()
+		plt.title('Histogram of the image')
+		plt.plot(range(hist.shape[0]), hist[:,0])
+		plt.plot(range(hist.shape[0]), hist[:,1])
+		plt.plot(range(hist.shape[0]), hist[:,2])
+
+	return hist
+
+def histogram_sliding_filter(hist, window_size=16, flag_plot=False):
 	n, depth = hist.shape
 	avg_hist = np.zeros_like(hist).astype(np.int32)
 
@@ -52,9 +66,15 @@ def histogram_sliding_filter(hist, window_size=16):
 		tmp_hist = np.convolve(hist[:,channel], sliding_window , mode='same')
 		avg_hist[:,channel] = tmp_hist
 
+	if flag_plot == True:
+		plt.figure(1)
+		plt.clf()
+		plt.title('Smoothed Histogram of the image')
+		plt.plot(range(avg_hist.shape[0]), avg_hist[:,0])
+		plt.plot(range(avg_hist.shape[0]), avg_hist[:,1])
+		plt.plot(range(avg_hist.shape[0]), avg_hist[:,2])
+
 	return avg_hist
-
-
 
 def find_horizon_simple(v_hist,window_size=16):
 	minval = [0,0]
@@ -218,7 +238,7 @@ def find_horizon(img, nwindows=8, minpix=300, window_height=20, flag_plot=False)
 	return horizon_fit, horizon_inds, cropped, display
 
 
-def is_horizon_present(img, nrows=10, verbose=False, flag_plot=False):
+def is_horizon_present(img, nrows=10, verbose=True, flag_plot=False):
 	_img = cv2.resize(img, (640,480))
 
 	starting_row = 0
@@ -242,6 +262,9 @@ def is_horizon_present(img, nrows=10, verbose=False, flag_plot=False):
 
 	rgb_right = [r_avg_right, g_avg_right, b_avg_right]
 	rgb_left = [r_avg_left, g_avg_left, b_avg_left]
+	if verbose == True:
+		print("Left Side Avg RGB: " + str(rgb_left))
+		print("Right Side Avg RGB: " + str(rgb_right))
 
 	if rgb_left > rgb_right:
 		rgb = rgb_left
@@ -257,10 +280,12 @@ def is_horizon_present(img, nrows=10, verbose=False, flag_plot=False):
 
 	if np.all(checker) == True:
 		flag = True
-		# print("Finding Horizon")
+		if verbose == True:
+			print("Finding Horizon")
 	else:
 		flag = False
-		# print("No need to find Horizon")
+		if verbose == True:
+			print("No need to find Horizon")
 	if verbose == True:
 		print("Average RGB Values: " + str(rgb))
 

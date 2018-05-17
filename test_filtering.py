@@ -55,7 +55,7 @@ def update(img):
 	#
 	# Z = resr.reshape((-1,3))
 	# Z = np.float32(Z)
-	# 
+	#
 	# # define criteria, number of clusters(K) and apply kmeans()
 	# criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
 	# K = 2
@@ -67,17 +67,17 @@ def update(img):
 	# res2 = res.reshape((resr.shape))
 	# cv2.imshow('res2',res2)
 
-	fut.filter_custom(tmp)
+	# fut.filter_custom(tmp)
 
-	# horizon_present = sut.is_horizon_present(_img)
-	# # filtered_img = update_filter(_img)
+	horizon_present = sut.is_horizon_present(_img)
+	filtered_img,_ = update_filter(_img)
 	# filtered_img = color_filter(_img)
 	# # Thresholding
 	# grey = cv2.cvtColor(filtered_img,cv2.COLOR_BGR2GRAY)
 	# _, mask = cv2.threshold(grey, 10, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
 	# mask = fut.apply_morph(mask, ks=[10,7], flag_open=True)
-	# # res = cv2.bitwise_and(filtered_img, filtered_img, mask = mask)
-	# cv2.imshow("mask",mask)
+	# res = cv2.bitwise_and(filtered_img, filtered_img, mask = mask)
+	cv2.imshow("mask",filtered_img)
 	# cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
 	# cnts = cnts[0] if imutils.is_cv2() else cnts[1]
 	# print("	"+ str(len(cnts)) + " contours")

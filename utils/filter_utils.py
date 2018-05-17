@@ -24,16 +24,32 @@ def select_white(image):
 
     return mask
 
+def filter_white(_img, flag_invert=1):
+	tmp = cv2.resize(_img, (640,480))
+	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
+
+	lower_hsv_white = np.array([0, 0, 0])
+	upper_hsv_white = np.array([255, 255, 200])
+
+	mask_hsv = cv2.inRange(hsv, lower_hsv_white, upper_hsv_white)
+	res_hsv = cv2.bitwise_and(tmp, tmp, mask = mask_hsv)
+
+	res = cv2.bitwise_and(tmp, tmp, mask = mask_hsv)
+
+	return res, mask_hsv
+
 def filter_green(_img, flag_invert=1, flip_order=None):
 	tmp = cv2.resize(_img, (640,480))
 	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
 	yuv = cv2.cvtColor(tmp,cv2.COLOR_BGR2YUV)
 
-	lower_yuv_green = np.array([39, 124, 106])
-	upper_yuv_green = np.array([202, 255, 141])
+	# lower_yuv_green = np.array([39, 124, 106]) # Original
+	lower_yuv_green = np.array([0, 0, 0])
+	upper_yuv_green = np.array([202, 255, 120])
 
-	lower_hsv_green = np.array([0, 0, 0])
-	upper_hsv_green = np.array([255, 24, 232])
+	lower_hsv_green = np.array([18, 52, 0])
+	# upper_hsv_green = np.array([255, 24, 232]) # Original
+	upper_hsv_green = np.array([255, 255, 89])
 
 	mask_yuv = cv2.inRange(yuv, lower_yuv_green, upper_yuv_green)
 	res_yuv = cv2.bitwise_and(tmp, tmp, mask = mask_yuv)

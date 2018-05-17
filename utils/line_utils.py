@@ -123,11 +123,16 @@ def test_ransac_line_fit(img):
 	a, b, c = m
 	plt.plot([0, 10], [-c/b, -(c+10*a)/b], color=(0, 1, 0))
 
-def ransac_meth2(img):
+def ransac_meth2(img,midpoint=None):
 	tmp = np.copy(img)
 	display_lines = np.copy(img)
 	h,w,c = img.shape
-	beg = w/2; end = w
+
+	if midpoint == None:
+		beg = w/2; end = w
+	else:
+		beg = midpoint; end = w
+
 	# print(beg,end)
 
 	# Crop the image into two halves
@@ -146,8 +151,8 @@ def ransac_meth2(img):
 	nonzerox_right = np.array(nonzero_right[1]).reshape(-1,1)
 
 	# Robustly fit linear model with RANSAC algorithm
-	ransacL = linear_model.RANSACRegressor()
-	ransacR = linear_model.RANSACRegressor()
+	ransacL = linear_model.RANSACRegressor(residual_threshold=None, max_trials=20, stop_probability=0.80)
+	ransacR = linear_model.RANSACRegressor(residual_threshold=None, max_trials=20, stop_probability=0.80)
 	ransacL.fit(nonzerox_left, -nonzeroy_left)
 	ransacR.fit(nonzerox_right, -nonzeroy_right)
 	inlier_maskL = ransacL.inlier_mask_
