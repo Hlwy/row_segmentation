@@ -57,6 +57,107 @@ def custom_hist(_img, rows=[0,0], cols=[0,0], axis=0,flag_plot=False):
 
 	return hist
 
+def find_lowest_green(imgL,imgR, threshold=500,window_size=16,verbose=False,flag_plot=False):
+	h,_,_ = imgL.shape
+
+	vhistL1 = vertical_hist(imgL)
+	vhistR1 = vertical_hist(imgR)
+
+	vhistL = histogram_sliding_filter(vhistL1, window_size=window_size)
+	vhistR = histogram_sliding_filter(vhistR1, window_size=window_size)
+
+	# Find Left
+	minval = [0,0]
+	n_slopes = vhistL.shape[0] // window_size
+	# print("Slopes: " + str(n_slopes))
+	for i in range(n_slopes):
+		xold = window_size * (i)
+		xnew = window_size * (i+1) - 1
+
+		dx = window_size
+		dy = vhistL[xnew,1] - vhistL[xold,1]
+
+		m = dy/dx
+		tmp = np.array([xnew, m])
+		if tmp[1] < minval[1]:
+			minval = tmp
+
+	# print("Minimum Left: " + str(minval))
+	tmpMinIdxL = int(minval[0])
+	tmpMinL = int(minval[1])
+
+	# Find Right
+	minval = [0,0]
+	n_slopes = vhistR.shape[0] // window_size
+	# print("Slopes: " + str(n_slopes))
+	for i in range(n_slopes):
+		xold = window_size * (i)
+		xnew = window_size * (i+1) - 1
+
+		dx = window_size
+		dy = vhistR[xnew,1] - vhistR[xold,1]
+
+		m = dy/dx
+		tmp = np.array([xnew, m])
+		if tmp[1] < minval[1]:
+			minval = tmp
+
+	# print("Minimum Right: " + str(minval))
+	tmpMinIdxR = int(minval[0])
+	tmpMinR = int(minval[1])
+
+	# Alternative
+	yminL = np.min(vhistL[:,1])
+	yminR = np.min(vhistR[:,1])
+
+	yminaL = np.argmin(vhistL[:,1])
+	yminaR = np.argmin(vhistR[:,1])
+
+	if verbose == True:
+		print("MIN VALUES: ",yminL,yminR)
+		print("MIN INDEXES: ",yminaL,yminaR)
+
+	if yminL > threshold:
+		yMinLeft = h
+	else:
+		yMinLeft = yminaL
+
+	if yminR > threshold:
+		yMinRight = h
+	else:
+		yMinRight = yminaR
+
+	if yMinLeft == 0:
+		yMinLeft = tmpMinIdxL
+	if yMinRight == 0:
+		yMinRight = tmpMinIdxR
+
+	if verbose == True:
+		print("Minimum y-pixels found [L, R]: ",yMinLeft,yMinRight)
+
+	if flag_plot == True:
+		plt.figure(2)
+		plt.clf()
+		plt.title('Smoothed Histogram of the Left image')
+		plt.plot(range(vhistL.shape[0]), vhistL[:,0])
+		plt.plot(range(vhistL.shape[0]), vhistL[:,1])
+		plt.plot(range(vhistL.shape[0]), vhistL[:,2])
+		plt.figure(3)
+		plt.clf()
+		plt.title('Smoothed Histogram of the Right image')
+		plt.plot(range(vhistR.shape[0]), vhistR[:,0])
+		plt.plot(range(vhistR.shape[0]), vhistR[:,1])
+		plt.plot(range(vhistR.shape[0]), vhistR[:,2])
+
+	return [yMinLeft, yMinRight]
+
+
+def find_lowest_contours(contourL, contourR):
+	leftYMin = np.max(contourL[:,:,1])
+	rightYMin = np.max(contourR[:,:,1])
+	print("Contour Mins: ", leftYMin,rightYMin)
+	return [leftYMin, rightYMin]
+
 def histogram_sliding_filter(hist, window_size=16, flag_plot=False):
 	n, depth = hist.shape
 	avg_hist = np.zeros_like(hist).astype(np.int32)

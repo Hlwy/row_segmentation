@@ -35,6 +35,7 @@ if __name__ == "__main__" :
 	ap.add_argument("--images_path", "-i", type=str, metavar='FILE', default='test', help="Name of video file to parse")
 	ap.add_argument("--output_file", "-n", type=str, metavar='NAME', default='training_log', help="Name of output file containing information about parsed video")
 	ap.add_argument("--output_path", "-p", type=str, metavar='FILE', default='exported', help="Name of video file to parse")
+	ap.add_argument("--input_log", "-l", type=str, metavar='FILE', help="Name of video file to parse")
 	# Store parsed arguments into array of variables
 	args = vars(ap.parse_args())
 
@@ -42,6 +43,7 @@ if __name__ == "__main__" :
 	imgDir = args["images_path"]
 	outName = args["output_file"]
 	outDir = args["output_path"]
+	inputLog = args["input_log"]
 
 	outName = str(imgDir) + "_" + str(outName)
 	# outDir = os.getcwd() + "/" + str(outDir)

@@ -28,6 +28,7 @@ import cv2
 import argparse
 from time import time
 from matplotlib import pyplot as plt
+from sklearn.neighbors import NearestNeighbors
 import numpy as np
 from utils import utils as ut
 from utils import filter_utils as fut
@@ -35,57 +36,20 @@ from utils import seg_utils as sut
 from utils import line_utils as lut
 
 
-def find_if_close(cnt1,cnt2):
-    row1,row2 = cnt1.shape[0],cnt2.shape[0]
-    for i in xrange(row1):
-        for j in xrange(row2):
-            dist = np.linalg.norm(cnt1[i]-cnt2[j])
-            if abs(dist) < 50 :
-                return True
-            elif i==row1-1 and j==row2-1:
-                return False
-
-def combine_contours(contours):
-	LENGTH = len(contours)
-	status = np.zeros((LENGTH,1))
-	for i,cnt1 in enumerate(contours):
-		x = i
-		if i != LENGTH-1:
-			for j,cnt2 in enumerate(contours[i+1:]):
-				x = x+1
-				dist = find_if_close(cnt1,cnt2)
-				if dist == True:
-					val = min(status[i],status[x])
-					status[x] = status[i] = val
-				else:
-					if status[x]==status[i]:
-						status[x] = i+1
-
-	unified = []
-	maximum = int(status.max())+1
-	for i in xrange(maximum):
-		pos = np.where(status==i)[0]
-		if pos.size != 0:
-			cont = np.vstack(contours[i] for i in pos)
-			hull = cv2.convexHull(cont)
-			unified.append(hull)
-
-	cv2.drawContours(tmpFil,unified,-1,(255,255,255),2)
-
 def update(img):
 	global plt
+	xbuf = 200
 
 	# duration = 0
 	start = time()
 
 	_img = cv2.resize(img, (640,480))
+	disp_lines = np.copy(_img)
+	h,w,c = _img.shape
 
 	horizon_present = sut.is_horizon_present(_img)
 	# _img,_ = fut.filter_white(_img)
 	filtered_img, _ = update_filter(_img)
-
-	# fut.filter_custom(_img)
-	# strips = sut.histogram_strips(filtered_img)
 
 	if horizon_present == True:
 		horizon_fit, horizon_inds, horizon_filtered, horizon_display = sut.find_horizon(filtered_img)
@@ -94,97 +58,73 @@ def update(img):
 		horizon_filtered = filtered_img
 		horizon_display = filtered_img
 
-	tmpFil = fut.apply_morph(horizon_filtered, ks=[10,10],flag_open=True)
+	tmpFil = fut.apply_morph(horizon_filtered, ks=[7,7],flag_open=False)
 
-	h,w,c = tmpFil.shape
-	xbuf = 200
+	# tmpDisp1 = np.hstack((_img,filtered_img))
+	# tmpDisp2 = np.hstack((horizon_filtered,tmpFil))
+	# tmpDisp = np.vstack((tmpDisp1,tmpDisp2))
+	# plt.figure(1)
+	# plt.clf()
+	# plt.imshow(tmpDisp)
+	# plt.show()
+
 	hist = sut.custom_hist(tmpFil,[0,h],[xbuf,w-xbuf],axis=0)
-	hist = sut.histogram_sliding_filter(hist)
+
 	xmid = np.argmin(hist[:,0])+xbuf
+
 	# Crop the image into two halves
 	beg = xmid; end = w
 	img_right = tmpFil[:,beg:end]
 	img_left = tmpFil[:,0:beg]
 
-	ret, threshed_img = cv2.threshold(cv2.cvtColor(img_left, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
-	image, contours, hier = cv2.findContours(threshed_img, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 
-	# print(hier)
-	max_x = 0; min_x = 0; max_y = 0; min_y = 0
+	ret, threshed_imgL = cv2.threshold(cv2.cvtColor(img_left, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
+	ret, threshed_imgR = cv2.threshold(cv2.cvtColor(img_right, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
 
-	c = max(contours, key = cv2.contourArea)
-	hull = cv2.convexHull(c)
-	cv2.drawContours(tmpFil, [hull], -1, (0, 0, 255), 1)
+	# cv2.imshow("Image Left",threshed_imgL)
+	# cv2.imshow("Image Right",threshed_imgR)
 
-	# rows,cols = tmpFil.shape[:2]
-	# [vx,vy,x,y] = cv2.fitLine(c, cv2.DIST_L2,0,0.01,0.01)
-	# lefty = int((-x*vy/vx) + y)
-	# righty = int(((cols-x)*vy/vx)+y)
-	# cv2.line(tmpFil,(cols-1,righty),(0,lefty),(0,255,255),2)
-    #
-	# epsilon = 0.001*cv2.arcLength(c,True)
-	# approx = cv2.approxPolyDP(c,epsilon,True)
-	# cv2.drawContours(tmpFil, [approx], -1, (255, 0, 255), 1)
-    #
-	# rect = cv2.minAreaRect(c)
-	# box = cv2.boxPoints(rect)
-	# box = np.int0(box)
-	# cv2.drawContours(tmpFil,[box],0,(255,255,255),2)
+	imageL, contoursL, hierL = cv2.findContours(threshed_imgL, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+	imageR, contoursR, hierR = cv2.findContours(threshed_imgR, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
 
-	# i = 0
-	# for cnt in contours:
-	# 	i+=1
-	# 	M = cv2.moments(cnt)
-	# 	hull = cv2.convexHull(cnt)
-	# 	cv2.drawContours(tmpFil, [hull], -1, (0, 0, 255), 1)
-	# 	try:
-	# 		cX = int(M["m10"] / M["m00"])
-	# 		cY = int(M["m01"] / M["m00"])
-	# 		cv2.circle(tmpFil, (cX, cY), 2, (255, 255, 255), -1)
-	# 		cv2.putText(tmpFil, "center"+str(i), (cX - 20, cY - 20),
-	# 			cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-	# 	except:
-	# 		print("ERROR: Moments not found")
-	# 		pass
+	cL = max(contoursL, key = cv2.contourArea)
+	cR = max(contoursR, key = cv2.contourArea)
+	cleft = np.array(cL).reshape(-1,2)
+	cright = np.array(cR).reshape(-1,2)
+
+	careaL = cv2.contourArea(cL)
+	careaR = cv2.contourArea(cR)
+
+	if careaL < 5000.0:
+		xmid = w/2
+		lineL, lineR, disp_lines = lut.ransac_meth2(horizon_filtered,xmid)
+		print("Largest Contour to small Looking for lines via RANSAC")
+	else:
+		lineL, lineR, disp_lines = lut.ransac_meth2(horizon_filtered,xmid, _img)
+
+		yminL = 0; yminR = 0
+		histMins = sut.find_lowest_green(img_left,img_right)
+		contMins = sut.find_lowest_contours(cL,cR)
+
+		if contMins[0] > histMins[0]:
+			yminL = contMins[0]
+		else:
+			yminL = histMins[0]
+		if contMins[1] > histMins[1]:
+			yminR = contMins[1]
+		else:
+			yminR = histMins[1]
+		print("Chosen Mins: ", yminL,yminR)
 
 
 
-	# for contour, hi in zip(contours, hier):
-	# 	(x,y,w,h) = cv2.boundingRect(contour)
-	# 	min_x, max_x = min(x, min_x), max(x+w, max_x)
-	# 	min_y, max_y = min(y, min_y), max(y+h, max_y)
-	# # 	if w > 80 and h > 80:
-	# # 		cv2.rectangle(tmpFil, (x,y), (x+w,y+h), (255, 255, 0), 2)
-    # #
-	# if max_x - min_x > 0 and max_y - min_y > 0:
-	# 	cv2.rectangle(tmpFil, (min_x, min_y), (max_x, max_y), (255, 0, 0), 2)
-    #
-	# # hull = cv2.convexHull(threshed_img)
-	# # cv2.drawContours(tmpFil, [hull], -1, (0, 0, 255), 1)
-	# for cnt in contours:
-	# 	(x,y,w,h) = cv2.boundingRect(cnt)
-	# 	# cv2.rectangle(tmpFil, (x,y), (x+w,y+h), (255, 255, 0), 2)
-	# 	# get convex hull
-	# 	hull = cv2.convexHull(cnt)
-	# 	# draw it in red color
-	# 	# cv2.drawContours(tmpFil, [cnt], -1, (0, 255, 0), 1)
-	# 	cv2.drawContours(tmpFil, [hull], -1, (0, 0, 255), 1)
 
 
-	cv2.imshow("morphed",tmpFil)
-
-	# disp_lines, disp_windows = lut.find_line_exp(horizon_filtered)
-	disp_lines, _ = lut.ransac_meth2(horizon_filtered,xmid)
-	cv2.imshow("Lines Found", disp_lines)
-	# cv2.imshow("Windows Used To Find Lines", disp_windows)
-
-	# tmp_disp = np.copy(horizon_filtered)
-	# lines = tmp_disp
-	# lines = lut.update_zhong(tmp_disp,0, 53.0,0.0,0.0,555.0,577.0)
-	# cv2.imshow("Row Lines", lines)
 
 	duration = time() - start
-	# print("Processing Duration: " + str(duration))
+	cv2.imshow("Lines Found: RANSAC", disp_lines)
+	cv2.imshow("morphed",tmpFil)
+	print("Processing Duration: " + str(duration))
 
 	return disp_lines
 

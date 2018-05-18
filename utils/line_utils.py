@@ -6,7 +6,9 @@
 # Current Recommended Usage: (in terminal)
 # 	TODO
 from matplotlib import pyplot as plt
-from sklearn import linear_model, datasets
+from sklearn import linear_model, datasets, neighbors
+# from sklearn.neighbors import NearestNeighbors
+
 import numpy as np
 import os
 import cv2
@@ -123,9 +125,15 @@ def test_ransac_line_fit(img):
 	a, b, c = m
 	plt.plot([0, 10], [-c/b, -(c+10*a)/b], color=(0, 1, 0))
 
-def ransac_meth2(img,midpoint=None):
+def nearestneighborsMeth2(img,midpoint=None,n_neighbors=2, display=None):
 	tmp = np.copy(img)
-	display_lines = np.copy(img)
+
+	try:
+		d = display.dtype
+		display_lines = np.copy(display)
+	except:
+		display_lines = np.copy(img)
+
 	h,w,c = img.shape
 
 	if midpoint == None:
@@ -133,7 +141,68 @@ def ransac_meth2(img,midpoint=None):
 	else:
 		beg = midpoint; end = w
 
-	# print(beg,end)
+	# Crop the image into two halves
+	img_right = img[:,beg:end]
+	img_left = img[:,0:beg]
+
+	# cv2.imshow("Cropped Right", img_right)
+	# cv2.imshow("Cropped Left", img_left)
+
+	nonzero_left = img_left.nonzero()
+	nonzeroy_left = np.array(nonzero_left[0]).reshape(-1,1)
+	nonzerox_left = np.array(nonzero_left[1]).reshape(-1,1)
+
+	nonzero_right = img_right.nonzero()
+	nonzeroy_right = np.array(nonzero_right[0]).reshape(-1,1)
+	nonzerox_right = np.array(nonzero_right[1]).reshape(-1,1)
+
+	# Robustly fit linear model with RANSAC algorithm
+	# knnL = neighbors.KNeighborsRegressor(n_neighbors, weights='distance')
+	# knnR = neighbors.KNeighborsRegressor(n_neighbors, weights='distance')
+
+	knnL = neighbors.KNeighborsRegressor(n_neighbors, weights='uniform')
+	knnR = neighbors.KNeighborsRegressor(n_neighbors, weights='uniform')
+
+	# ransacL = linear_model.RANSACRegressor(residual_threshold=None, max_trials=20, stop_probability=0.80)
+	# ransacR = linear_model.RANSACRegressor(residual_threshold=None, max_trials=20, stop_probability=0.80)
+
+	knnL.fit(nonzerox_left, -nonzeroy_left)
+	knnR.fit(nonzerox_right, -nonzeroy_right)
+
+	# ransacL.fit(nonzerox_left, -nonzeroy_left)
+	# ransacR.fit(nonzerox_right, -nonzeroy_right)
+
+	# Predict data of estimated models
+	line_xL = np.arange(nonzerox_left.min(), nonzerox_left.max())[:, np.newaxis]
+	line_xR = np.arange(nonzerox_right.min(), nonzerox_right.max())[:, np.newaxis]
+	line_yL = knnL.predict(line_xL)
+	line_yR = knnR.predict(line_xR)
+
+	# line_yL = ransacL.predict(line_xL)
+	# line_yR = ransacR.predict(line_xR)
+
+	cv2.line(display_lines,(int(line_xR[0]+beg),int(-line_yR[0])),(int(line_xR[-1]+beg),int(-line_yR[-1])),(0,0,255))
+	cv2.line(display_lines,(int(line_xL[0]),int(-line_yL[0])),(int(line_xL[-1]),int(-line_yL[-1])),(255,0,0))
+
+	# print("Estimated coefficients (true, linear regression, RANSAC):")
+	# print(ransac.estimator_.coef_)
+	# return line_X, line_y_ransac
+	return display_lines, line_yL
+
+def ransac_meth2(img,midpoint=None, display=None):
+	tmp = np.copy(img)
+	h,w,c = img.shape
+
+	try:
+		d = display.dtype
+		display_lines = np.copy(display)
+	except:
+		display_lines = np.copy(img)
+
+	if midpoint == None:
+		beg = w/2; end = w
+	else:
+		beg = midpoint; end = w
 
 	# Crop the image into two halves
 	img_right = img[:,beg:end]
@@ -171,8 +240,14 @@ def ransac_meth2(img,midpoint=None):
 	# print("Estimated coefficients (true, linear regression, RANSAC):")
 	# print(ransac.estimator_.coef_)
 	# return line_X, line_y_ransac
-	return display_lines, line_yL
+	return [line_xL,line_yL], [line_xR,line_yR],display_lines,
 
+def slide_window_down(size,location,limits):
+	h,w = size
+	x,y = location
+
+
+	return 1
 
 def find_line_exp(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, flag_manual=False, flag_plot_hists=False):
 	tmp = cv2.resize(img, (640,480))
