@@ -58,7 +58,7 @@ def update(img):
 		horizon_filtered = filtered_img
 		horizon_display = filtered_img
 
-	tmpFil = fut.apply_morph(horizon_filtered, ks=[7,7],flag_open=False)
+	tmpFil = fut.apply_morph(horizon_filtered, ks=[6,6],flag_open=False)
 
 	# tmpDisp1 = np.hstack((_img,filtered_img))
 	# tmpDisp2 = np.hstack((horizon_filtered,tmpFil))
@@ -74,9 +74,11 @@ def update(img):
 
 	# Crop the image into two halves
 	beg = xmid; end = w
+	# img_right = horizon_filtered[:,beg:end]
+	# img_left = horizon_filtered[:,0:beg]
+
 	img_right = tmpFil[:,beg:end]
 	img_left = tmpFil[:,0:beg]
-
 
 	ret, threshed_imgL = cv2.threshold(cv2.cvtColor(img_left, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
 	ret, threshed_imgR = cv2.threshold(cv2.cvtColor(img_right, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
@@ -98,26 +100,53 @@ def update(img):
 	if careaL < 5000.0:
 		xmid = w/2
 		lineL, lineR, disp_lines = lut.ransac_meth2(horizon_filtered,xmid)
-		print("Largest Contour to small Looking for lines via RANSAC")
+		contMins = [0,0]
+		# print("Largest Contour to small Looking for lines via RANSAC")
 	else:
-		lineL, lineR, disp_lines = lut.ransac_meth2(horizon_filtered,xmid, _img)
-
 		yminL = 0; yminR = 0
-		histMins = sut.find_lowest_green(img_left,img_right)
+		lineL, lineR, disp_lines = lut.ransac_meth2(horizon_filtered,xmid)
+
+		xL0 = int(lineL[0][0]); xR0 = int(lineR[0][0])
+		yL0 = int(lineL[-1][0]); yR0 = int(lineR[-1][0])
+
+		xLf = int(lineL[0][-1]); xRf = int(lineR[0][-1])
+		yLf = int(lineL[1][-1]); yRf = int(lineR[1][-1])
+
+		# print("X Initials: ", xL0,xR0)
+		# print("Y Initials: ", yL0,yR0)
+		# print("X Finals: ", xLf,xRf)
+		# print("Y Finals: ", yLf,yRf)
+
+		winMins = lut.find_lowest_windows(img_left,img_right,lineL,lineR)
 		contMins = sut.find_lowest_contours(cL,cR)
+		histMins = sut.find_lowest_histograms(img_left,img_right)
 
 		if contMins[0] > histMins[0]:
 			yminL = contMins[0]
 		else:
 			yminL = histMins[0]
+
+		if winMins[0] > yminL:
+			yminL = winMins[0]
+
 		if contMins[1] > histMins[1]:
 			yminR = contMins[1]
 		else:
 			yminR = histMins[1]
-		print("Chosen Mins: ", yminL,yminR)
+
+		if winMins[1] > yminR:
+			yminR = winMins[1]
+
+		# print("Chosen Mins: ", yminL,yminR)
+
+		xL = lut.slide_window_right(img_left,[xL0,yminL],threshold=300,size=[30,50])
+		xR = lut.slide_window_left(img_right,[xR0,yminR],threshold=300,size=[15,50]) + xmid
 
 
-
+		# cv2.circle(disp_lines,(xL,yminL),2,(255,0,0),-1)
+		# cv2.circle(disp_lines,(xR,yminR),2,(0,0,255),-1)
+		cv2.line(disp_lines,(int(xL),int(yminL)),(int(xLf),int(-yLf)),(255,255,0))
+		cv2.line(disp_lines,(int(xR0),int(-yR0)),(int(xR),int(yminR)),(0,255,255))
 
 
 

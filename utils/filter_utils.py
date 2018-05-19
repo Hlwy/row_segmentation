@@ -198,7 +198,7 @@ def add_green_mask(white_mask):
 	res_mask = cv2.bitwise_and(green_mask, green_mask, mask = white_mask)
 	return res_mask
 
-def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=False):
+def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=True):
 	if shape == 0:
 		kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(int(ks[0]),int(ks[1])))
 	elif shape == 1:

@@ -232,22 +232,348 @@ def ransac_meth2(img,midpoint=None, display=None):
 	line_xL = np.arange(nonzerox_left.min(), nonzerox_left.max())[:, np.newaxis]
 	line_xR = np.arange(nonzerox_right.min(), nonzerox_right.max())[:, np.newaxis]
 	line_yL = ransacL.predict(line_xL)
+
 	line_yR = ransacR.predict(line_xR)
 
-	cv2.line(display_lines,(int(line_xR[0]+beg),int(-line_yR[0])),(int(line_xR[-1]+beg),int(-line_yR[-1])),(0,0,255))
+	line_xR = np.arange(nonzerox_right.min(), nonzerox_right.max())[:, np.newaxis] + beg
+
+	cv2.line(display_lines,(int(line_xR[0]),int(-line_yR[0])),(int(line_xR[-1]),int(-line_yR[-1])),(0,0,255))
 	cv2.line(display_lines,(int(line_xL[0]),int(-line_yL[0])),(int(line_xL[-1]),int(-line_yL[-1])),(255,0,0))
 
 	# print("Estimated coefficients (true, linear regression, RANSAC):")
 	# print(ransac.estimator_.coef_)
 	# return line_X, line_y_ransac
-	return [line_xL,line_yL], [line_xR,line_yR],display_lines,
+	return [line_xL,line_yL], [line_xR,line_yR],display_lines
 
-def slide_window_down(size,location,limits):
-	h,w = size
-	x,y = location
+def find_lowest_windows(img_left,img_right,line_left,line_right, window_size=[30,30],verbose=False):
+	lineL = np.array(line_left); lineR = np.array(line_right)
+	# Find the value found by sliding a window down starting at the beginning coordinate for the lines
+	locL = lineL[:,0]; locR = lineR[:,0]
+	winMinL = slide_window_down(img_left,locL,size=window_size)
+	winMinR = slide_window_down(img_right,locR,size=window_size)
+	if verbose == True:
+		print("Sliding Window Mins @ Beginning: ",winMinL,winMinR)
+
+	# Find the value found by sliding a window down starting at the middle coordinate for the lines
+	rL,cL = lineL.shape[:2]
+	rR,cR = lineR.shape[:2]
+	if verbose == True:
+		print("Shape Left", rL, cL)
+		print("Shape Right", rR, cR)
+
+	midIdxL = cL // 2
+	midIdxR = cR // 2
+	if verbose == True:
+		print("Left Middle Index", midIdxL)
+		print("Right Middle Index", midIdxR)
+
+	locL = lineL[:,midIdxL]; locR = lineR[:,midIdxR]
+	winMinMidL = slide_window_down(img_left,locL,size=window_size)
+	winMinMidR = slide_window_down(img_right,locR,size=window_size)
+
+	if verbose == True:
+		print("Sliding Window Mins @ Middle: ",winMinMidL,winMinMidR)
+
+	if winMinMidL > winMinL:
+		winMinL = winMinMidL
+	if winMinMidR > winMinR:
+		winMinR = winMinMidR
+
+	return [winMinL,winMinR]
+
+def slide_window_down(img,location,size,threshold=400,display=None, verbose=False,flag_show=False):
+	good_inds = []
+	window = 0
+	flag_done = False
+	tmp = np.copy(img)
+	try:
+		d = display.dtype
+		display_windows = np.copy(display)
+	except:
+		display_windows = np.copy(img)
+
+	window_height,window_width = size
+	maxheight,maxwidth = tmp.shape[:2]
+
+	x_current = abs(int(location[0])); 	y_current = abs(int(location[1]))
+
+	# Move x-coordinate if we are at the edge so we can capture a bit more information
+	if x_current <= window_width:
+		x_current = window_width
+	if verbose == True:
+		print("Starting Location: ", x_current, y_current)
+
+	nonzero = tmp.nonzero()
+	nonzeroy = np.array(nonzero[0])
+	nonzerox = np.array(nonzero[1])
+
+	while not flag_done:
+		prev_good_inds = good_inds
+
+		if y_current >= maxheight:
+			flag_done = True
+			if verbose == True:
+				print("Exiting: Reached max image height.")
+			continue
+
+		# Check for [Y] edge conditions
+		if y_current - window_height >= 0:
+			win_y_low = y_current - window_height
+		else:
+			win_y_low = 0
+
+		if y_current + window_height <= maxheight:
+			win_y_high = y_current + window_height
+		else:
+			win_y_high = maxheight
+
+		# Check for [X] edge conditions
+		if x_current - window_width >= 0:
+			win_x_low = x_current - window_width
+		else:
+			win_x_low = 0
+
+		if x_current + window_width <= maxwidth:
+			win_x_high = x_current + window_width
+		else:
+			win_x_high = maxwidth
+
+		cv2.circle(display_windows,(x_current,y_current),2,(255,0,0),-1)
+		cv2.rectangle(display_windows,(win_x_low,win_y_high),(win_x_high,win_y_low),(255,0,0), 2)
+
+		# Identify the nonzero pixels in x and y within the window
+		good_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) &
+		(nonzerox >= win_x_low) &  (nonzerox < win_x_high)).nonzero()[0]
+
+		if verbose == True:
+			print("	Current Window [" + str(window) + "] Center: " + str(x_current) + ", " + str(y_current))
+			print("		Current Window X Limits: " + str(win_x_low) + ", " + str(win_x_high))
+			print("		Current Window Y Limits: " + str(win_y_low) + ", " + str(win_y_high))
+			print("		Current Window # Good Pixels: " + str(len(good_inds)))
+
+		if len(good_inds) > threshold:
+			y_current = y_current + window_height
+		else:
+			if verbose == True:
+				print("	Not enough good pixels @ " + str(x_current) + ", " + str(y_current))
+			try:
+				y_mean = np.int(np.mean(nonzeroy[good_inds]))
+				y_current = y_mean
+			except:
+				try:
+					y_mean = np.int(np.mean(nonzeroy[prev_good_inds]))
+					y_current = y_mean + window_height
+				except:
+					y_mean = y_current
+					y_current = y_current
+			if verbose == True:
+				print("Moving Y current to Mean Y Pixels: ", y_mean)
+			cv2.circle(display_windows,(x_current,y_current),2,(255,255,0),-1)
+			flag_done = True
+
+	if verbose == True:
+		print("Last Y found: ", y_current)
+	if flag_show == True:
+		cv2.imshow("Sliding Window Down",display_windows)
+	return y_current
 
 
-	return 1
+def slide_window_right(img,location,size=[30,30],threshold=400,display=None, verbose=False,flag_show=False):
+	good_inds = []
+	window = 0
+	flag_done = False
+	tmp = np.copy(img)
+	try:
+		d = display.dtype
+		display_windows = np.copy(display)
+	except:
+		display_windows = np.copy(img)
+
+	window_height,window_width = size
+	maxheight,maxwidth = tmp.shape[:2]
+
+	x_current = abs(int(location[0])); 	y_current = abs(int(location[1]))
+
+	# Move x-coordinate if we are at the edge so we can capture a bit more information
+	if x_current <= window_width:
+		x_current = window_width
+	if y_current >= maxheight:
+		y_current = maxheight - window_height
+	if verbose == True:
+		print("Starting Location: ", x_current, y_current)
+
+	nonzero = tmp.nonzero()
+	nonzeroy = np.array(nonzero[0])
+	nonzerox = np.array(nonzero[1])
+
+	while not flag_done:
+		prev_good_inds = good_inds
+
+		if x_current >= maxwidth:
+			flag_done = True
+			if verbose == True:
+				print("Exiting: Reached max image width.")
+			continue
+
+		# Check for [Y] edge conditions
+		if y_current - window_height >= 0:
+			win_y_low = y_current - window_height
+		else:
+			win_y_low = 0
+
+		if y_current + window_height <= maxheight:
+			win_y_high = y_current + window_height
+		else:
+			win_y_high = maxheight
+
+		# Check for [X] edge conditions
+		if x_current - window_width >= 0:
+			win_x_low = x_current - window_width
+		else:
+			win_x_low = 0
+
+		if x_current + window_width <= maxwidth:
+			win_x_high = x_current + window_width
+		else:
+			win_x_high = maxwidth
+
+		cv2.circle(display_windows,(x_current,y_current),2,(255,255,255),-1)
+		cv2.rectangle(display_windows,(win_x_low,win_y_high),(win_x_high,win_y_low),(255,0,0), 2)
+
+		# Identify the nonzero pixels in x and y within the window
+		good_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) &
+		(nonzerox >= win_x_low) &  (nonzerox < win_x_high)).nonzero()[0]
+
+		if verbose == True:
+			print("	Current Window [" + str(window) + "] Center: " + str(x_current) + ", " + str(y_current))
+			print("		Current Window X Limits: " + str(win_x_low) + ", " + str(win_x_high))
+			print("		Current Window Y Limits: " + str(win_y_low) + ", " + str(win_y_high))
+			print("		Current Window # Good Pixels: " + str(len(good_inds)))
+
+		if len(good_inds) > threshold:
+			x_current = x_current + window_width
+		else:
+			if verbose == True:
+				print("	Not enough good pixels @ " + str(x_current) + ", " + str(y_current))
+			try:
+				x_mean = np.int(np.mean(nonzerox[good_inds]))
+				x_current = x_mean
+			except:
+				try:
+					x_mean = np.int(np.mean(nonzerox[prev_good_inds]))
+					x_current = x_mean
+				except:
+					x_mean = x_current
+					x_current = x_current
+			if verbose == True:
+				print("Moving X current to Mean X Pixels: ", x_mean)
+			cv2.circle(display_windows,(x_current,y_current),2,(255,255,0),-1)
+			flag_done = True
+
+	if verbose == True:
+		print("Last X found: ", x_current)
+	if flag_show == True:
+		cv2.imshow("Sliding Window Right",display_windows)
+	return x_current
+
+
+def slide_window_left(img,location,size=[30,30],threshold=400,display=None, verbose=False,flag_show=False):
+	good_inds = []
+	window = 0
+	flag_done = False
+	tmp = np.copy(img)
+	try:
+		d = display.dtype
+		display_windows = np.copy(display)
+	except:
+		display_windows = np.copy(img)
+
+	window_height,window_width = size
+	maxheight,maxwidth = tmp.shape[:2]
+
+	x_current = abs(int(location[0])); 	y_current = abs(int(location[1]))
+
+	# Move x-coordinate if we are at the edge so we can capture a bit more information
+	if x_current >= maxwidth:
+		x_current = maxwidth - window_width
+	if y_current >= maxheight:
+		y_current = maxheight - window_height
+	if verbose == True:
+		print("Starting Location: ", x_current, y_current)
+
+	nonzero = tmp.nonzero()
+	nonzeroy = np.array(nonzero[0])
+	nonzerox = np.array(nonzero[1])
+
+	while not flag_done:
+		prev_good_inds = good_inds
+
+		if x_current <= 0:
+			flag_done = True
+			if verbose == True:
+				print("Exiting: Reached max image width.")
+			continue
+
+		# Check for [Y] edge conditions
+		if y_current - window_height >= 0:
+			win_y_low = y_current - window_height
+		else:
+			win_y_low = 0
+
+		if y_current + window_height <= maxheight:
+			win_y_high = y_current + window_height
+		else:
+			win_y_high = maxheight
+
+		# Check for [X] edge conditions
+		if x_current - window_width >= 0:
+			win_x_low = x_current - window_width
+		else:
+			win_x_low = 0
+
+		if x_current + window_width <= maxwidth:
+			win_x_high = x_current + window_width
+		else:
+			win_x_high = maxwidth
+
+		cv2.circle(display_windows,(x_current,y_current),2,(255,255,255),-1)
+		cv2.rectangle(display_windows,(win_x_low,win_y_high),(win_x_high,win_y_low),(0,0,255), 2)
+
+		# Identify the nonzero pixels in x and y within the window
+		good_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) &
+		(nonzerox >= win_x_low) &  (nonzerox < win_x_high)).nonzero()[0]
+
+		if verbose == True:
+			print("	Current Window [" + str(window) + "] Center: " + str(x_current) + ", " + str(y_current))
+			print("		Current Window X Limits: " + str(win_x_low) + ", " + str(win_x_high))
+			print("		Current Window Y Limits: " + str(win_y_low) + ", " + str(win_y_high))
+			print("		Current Window # Good Pixels: " + str(len(good_inds)))
+
+		if len(good_inds) > threshold:
+			x_current = x_current - window_width
+		else:
+			if verbose == True:
+				print("	Not enough good pixels @ " + str(x_current) + ", " + str(y_current))
+			try:
+				x_mean = np.int(np.mean(nonzerox[good_inds]))
+				x_current = x_mean
+			except:
+				try:
+					x_mean = np.int(np.mean(nonzerox[prev_good_inds]))
+					x_current = x_mean - window_width
+				except:
+					x_mean = x_current
+					x_current = x_current
+			if verbose == True:
+				print("Moving X current to Mean X Pixels: ", x_mean)
+			cv2.circle(display_windows,(x_current,y_current),2,(0,255,255),-1)
+			flag_done = True
+
+	if verbose == True:
+		print("Last X found: ", x_current)
+	if flag_show == True:
+		cv2.imshow("Sliding Window Left",display_windows)
+	return x_current
 
 def find_line_exp(img, margins=[150,75], nwindows=20, minpix=300, flag_plot=False, flag_manual=False, flag_plot_hists=False):
 	tmp = cv2.resize(img, (640,480))

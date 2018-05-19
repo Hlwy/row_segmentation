@@ -57,7 +57,7 @@ def custom_hist(_img, rows=[0,0], cols=[0,0], axis=0,flag_plot=False):
 
 	return hist
 
-def find_lowest_green(imgL,imgR, threshold=500,window_size=16,verbose=False,flag_plot=False):
+def find_lowest_histograms(imgL,imgR, threshold=500,window_size=16,verbose=False,flag_plot=False):
 	h,_,_ = imgL.shape
 
 	vhistL1 = vertical_hist(imgL)
@@ -149,6 +149,7 @@ def find_lowest_green(imgL,imgR, threshold=500,window_size=16,verbose=False,flag
 		plt.plot(range(vhistR.shape[0]), vhistR[:,1])
 		plt.plot(range(vhistR.shape[0]), vhistR[:,2])
 
+	print("Histogram Mins: ", yMinLeft,yMinRight)
 	return [yMinLeft, yMinRight]
 
 
@@ -339,7 +340,7 @@ def find_horizon(img, nwindows=8, minpix=300, window_height=20, flag_plot=False)
 	return horizon_fit, horizon_inds, cropped, display
 
 
-def is_horizon_present(img, nrows=10, verbose=True, flag_plot=False):
+def is_horizon_present(img, nrows=10, verbose=False, flag_plot=False):
 	_img = cv2.resize(img, (640,480))
 
 	starting_row = 0
