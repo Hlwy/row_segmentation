@@ -189,9 +189,11 @@ def nearestneighborsMeth2(img,midpoint=None,n_neighbors=2, display=None):
 	# return line_X, line_y_ransac
 	return display_lines, line_yL
 
-def ransac_meth2(img,midpoint=None, display=None):
+def ransac_meth2(img,midpointL=None,midpointR=None,max_trials=50,stop_probability=0.80, display=None):
 	tmp = np.copy(img)
 	h,w,c = img.shape
+	begL = 0; begR = 0
+	endL = 0; endR = w
 
 	try:
 		d = display.dtype
@@ -199,14 +201,23 @@ def ransac_meth2(img,midpoint=None, display=None):
 	except:
 		display_lines = np.copy(img)
 
-	if midpoint == None:
-		beg = w/2; end = w
-	else:
-		beg = midpoint; end = w
+	try:
+		# d = midpointL.dtype
+		begL = 0; endL = midpointL
+	except:
+		begL = 0; endL = w/2;
+
+	try:
+		d = midpointR.dtype
+		begR = midpointR; endR = w
+	except:
+		begR = endL; endR = w
+
+	# print("Line Finding Limits:" , begL,endL,begR,endR)
 
 	# Crop the image into two halves
-	img_right = img[:,beg:end]
-	img_left = img[:,0:beg]
+	img_left = img[:,begL:endL]
+	img_right = img[:,begR:endR]
 
 	# cv2.imshow("Cropped Right", img_right)
 	# cv2.imshow("Cropped Left", img_left)
@@ -220,8 +231,8 @@ def ransac_meth2(img,midpoint=None, display=None):
 	nonzerox_right = np.array(nonzero_right[1]).reshape(-1,1)
 
 	# Robustly fit linear model with RANSAC algorithm
-	ransacL = linear_model.RANSACRegressor(residual_threshold=None, max_trials=20, stop_probability=0.80)
-	ransacR = linear_model.RANSACRegressor(residual_threshold=None, max_trials=20, stop_probability=0.80)
+	ransacL = linear_model.RANSACRegressor(residual_threshold=None, max_trials=50, stop_probability=0.90)
+	ransacR = linear_model.RANSACRegressor(residual_threshold=None, max_trials=50, stop_probability=0.90)
 	ransacL.fit(nonzerox_left, -nonzeroy_left)
 	ransacR.fit(nonzerox_right, -nonzeroy_right)
 	inlier_maskL = ransacL.inlier_mask_
@@ -235,49 +246,58 @@ def ransac_meth2(img,midpoint=None, display=None):
 
 	line_yR = ransacR.predict(line_xR)
 
-	line_xR = np.arange(nonzerox_right.min(), nonzerox_right.max())[:, np.newaxis] + beg
+	line_xR = np.arange(nonzerox_right.min(), nonzerox_right.max())[:, np.newaxis]
 
-	cv2.line(display_lines,(int(line_xR[0]),int(-line_yR[0])),(int(line_xR[-1]),int(-line_yR[-1])),(0,0,255))
-	cv2.line(display_lines,(int(line_xL[0]),int(-line_yL[0])),(int(line_xL[-1]),int(-line_yL[-1])),(255,0,0))
+	cv2.line(display_lines,(int(line_xR[0] + begR),int(-line_yR[0])),(int(line_xR[-1] + begR),int(-line_yR[-1])),(0,0,255),thickness=3)
+	cv2.line(display_lines,(int(line_xL[0]),int(-line_yL[0])),(int(line_xL[-1]),int(-line_yL[-1])),(255,0,0),thickness=3)
 
 	# print("Estimated coefficients (true, linear regression, RANSAC):")
 	# print(ransac.estimator_.coef_)
 	# return line_X, line_y_ransac
 	return [line_xL,line_yL], [line_xR,line_yR],display_lines
 
-def find_lowest_windows(img_left,img_right,line_left,line_right, window_size=[30,30],verbose=False):
+def find_lowest_windows(img_left,img_right,line_left,line_right,midpointL=None,midpointR=None, window_size=[30,30], flag_beginning=True,verbose=False):
 	lineL = np.array(line_left); lineR = np.array(line_right)
-	# Find the value found by sliding a window down starting at the beginning coordinate for the lines
-	locL = lineL[:,0]; locR = lineR[:,0]
-	winMinL = slide_window_down(img_left,locL,size=window_size)
-	winMinR = slide_window_down(img_right,locR,size=window_size)
-	if verbose == True:
-		print("Sliding Window Mins @ Beginning: ",winMinL,winMinR)
 
-	# Find the value found by sliding a window down starting at the middle coordinate for the lines
-	rL,cL = lineL.shape[:2]
-	rR,cR = lineR.shape[:2]
-	if verbose == True:
-		print("Shape Left", rL, cL)
-		print("Shape Right", rR, cR)
+	if flag_beginning == True:
+		# Find the value found by sliding a window down starting at the beginning coordinate for the lines
+		locL = lineL[:,0]; locR = lineR[:,-1]
+		winMinL = slide_window_down(img_left,locL,size=window_size)
+		winMinR = slide_window_down(img_right,locR,size=window_size)
+		if verbose == True:
+			print("Sliding Window Mins @ Beginning: ",winMinL,winMinR)
 
-	midIdxL = cL // 2
-	midIdxR = cR // 2
-	if verbose == True:
-		print("Left Middle Index", midIdxL)
-		print("Right Middle Index", midIdxR)
+		# Find the value found by sliding a window down starting at the middle coordinate for the lines
+		rL,cL = lineL.shape[:2]
+		rR,cR = lineR.shape[:2]
+		if verbose == True:
+			print("Shape Left", rL, cL)
+			print("Shape Right", rR, cR)
 
-	locL = lineL[:,midIdxL]; locR = lineR[:,midIdxR]
-	winMinMidL = slide_window_down(img_left,locL,size=window_size)
-	winMinMidR = slide_window_down(img_right,locR,size=window_size)
+		midIdxL = cL // 2
+		midIdxR = cR // 2
+		if verbose == True:
+			print("Left Middle Index", midIdxL)
+			print("Right Middle Index", midIdxR)
 
-	if verbose == True:
-		print("Sliding Window Mins @ Middle: ",winMinMidL,winMinMidR)
+		locL = lineL[:,midIdxL]; locR = lineR[:,midIdxR]
+		winMinMidL = slide_window_down(img_left,locL,size=window_size)
+		winMinMidR = slide_window_down(img_right,locR,size=window_size)
 
-	if winMinMidL > winMinL:
-		winMinL = winMinMidL
-	if winMinMidR > winMinR:
-		winMinR = winMinMidR
+		if verbose == True:
+			print("Sliding Window Mins @ Middle: ",winMinMidL,winMinMidR)
+
+		if winMinMidL > winMinL:
+			winMinL = winMinMidL
+		if winMinMidR > winMinR:
+			winMinR = winMinMidR
+	else:
+		locL = lineL[:,-1]; locR = lineR[:, 0]
+		winMinL = slide_window_down(img_left,locL,size=window_size)
+		winMinR = slide_window_down(img_right,locR,size=window_size)
+		if verbose == True:
+			print("Locations Used @ End: ",locL,locR)
+			print("Sliding Window Mins @ End: ",winMinL,winMinR)
 
 	return [winMinL,winMinR]
 
@@ -299,6 +319,10 @@ def slide_window_down(img,location,size,threshold=400,display=None, verbose=Fals
 
 	# Move x-coordinate if we are at the edge so we can capture a bit more information
 	if x_current <= window_width:
+		x_current = window_width
+	elif x_current + window_width > maxwidth:
+		x_current = maxwidth - window_width
+	elif x_current - window_width < 0:
 		x_current = window_width
 	if verbose == True:
 		print("Starting Location: ", x_current, y_current)
@@ -362,7 +386,7 @@ def slide_window_down(img,location,size,threshold=400,display=None, verbose=Fals
 			except:
 				try:
 					y_mean = np.int(np.mean(nonzeroy[prev_good_inds]))
-					y_current = y_mean + window_height
+					y_current = y_mean # + window_height
 				except:
 					y_mean = y_current
 					y_current = y_current

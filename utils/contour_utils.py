@@ -49,7 +49,7 @@ def combine_contours(contours):
 	cv2.drawContours(tmpFil,unified,-1,(255,255,255),2)
 
 
-def show_hulls(img_left,img_right,cL,cR):
+def show_hulls(img_left,img_right,cL,cR,parent):
 	hullL = cv2.convexHull(cL)
 	hullR = cv2.convexHull(cR)
 	# print(hullL)
@@ -57,7 +57,7 @@ def show_hulls(img_left,img_right,cL,cR):
 	cv2.drawContours(img_left, [hullL], -1, (128, 0, 0), 1)
 	cv2.drawContours(img_right, [hullR], -1, (0, 0, 128), 1)
 
-	rows,cols = tmpFil.shape[:2]
+	rows,cols = parent.shape[:2]
 	[vx,vy,x,y] = cv2.fitLine(cL, cv2.DIST_L2,0,0.01,0.01)
 	lefty = int((-x*vy/vx) + y)
 	righty = int(((cols-x)*vy/vx)+y)

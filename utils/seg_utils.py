@@ -47,15 +47,62 @@ def custom_hist(_img, rows=[0,0], cols=[0,0], axis=0,flag_plot=False):
 	# Take a histogram of the whole image
 	hist = np.sum(_img[rows[0]:rows[1],cols[0]:cols[1]], axis=axis)
 
+	# print("Histogram Shape: ", hist.shape)
+
 	if flag_plot == True:
 		plt.figure(1)
 		plt.clf()
 		plt.title('Histogram of the image')
-		plt.plot(range(hist.shape[0]), hist[:,0])
-		plt.plot(range(hist.shape[0]), hist[:,1])
-		plt.plot(range(hist.shape[0]), hist[:,2])
+		plt.plot(range(hist.shape[0]), hist[:])
+		# plt.plot(range(hist.shape[0]), hist[:,1])
+		# plt.plot(range(hist.shape[0]), hist[:,2])
 
 	return hist
+
+def find_row_ends(hist,xbuffer=100):
+	xmidL = 0; xmidR = 0; xmid = 0
+	leftFound = False
+	rightFound = False
+	zeroCount = 0
+	zeroFlag = 40
+	try:
+		n, depth = hist.shape
+		xmin = np.min(hist[:,0])
+		xmid = np.argmin(hist[:,0])+xbuffer
+		rng = range(hist.shape[0])
+	except:
+		n = hist.shape
+		depth = None
+		xmin = np.min(hist[:])
+		xmid = np.argmin(hist[:])+xbuffer
+		rng = range(hist.shape[0])
+
+	if xmin == 0:
+		for pixel in rng:
+			if depth == None:
+				histVal = hist[pixel]
+			else:
+				histVal = hist[pixel,channel]
+
+			if histVal == 0:
+				zeroCount += 1
+
+			if zeroCount >= zeroFlag and leftFound == False:
+				leftFound = True
+				xmidL = pixel + xbuffer
+			if leftFound == True and histVal > 0 and rightFound == False:
+				rightFound = True
+				xmidR = pixel + xbuffer
+			if leftFound == True and rightFound == True:
+				xmid = np.array([xmidL, xmidR])
+				# print("Found both sides at " , xmid)
+				break
+	else:
+		# print("Found Middle X: ", xmid, xmin)
+		# xmid = np.asarray([xmid],dtype=np.int)
+		xmid = xmid
+
+	return xmid
 
 def find_lowest_histograms(imgL,imgR, threshold=500,window_size=16,verbose=False,flag_plot=False):
 	h,_,_ = imgL.shape
@@ -68,7 +115,11 @@ def find_lowest_histograms(imgL,imgR, threshold=500,window_size=16,verbose=False
 
 	# Find Left
 	minval = [0,0]
+	minvalL = [0,0]
+	minvalR = [0,0]
 	n_slopes = vhistL.shape[0] // window_size
+	n_slopesL = vhistL.shape[0] // window_size
+	n_slopesR = vhistR.shape[0] // window_size
 	# print("Slopes: " + str(n_slopes))
 	for i in range(n_slopes):
 		xold = window_size * (i)
@@ -148,33 +199,46 @@ def find_lowest_histograms(imgL,imgR, threshold=500,window_size=16,verbose=False
 		plt.plot(range(vhistR.shape[0]), vhistR[:,0])
 		plt.plot(range(vhistR.shape[0]), vhistR[:,1])
 		plt.plot(range(vhistR.shape[0]), vhistR[:,2])
-
-	print("Histogram Mins: ", yMinLeft,yMinRight)
+	if verbose == True:
+		print("Histogram Mins: ", yMinLeft,yMinRight)
 	return [yMinLeft, yMinRight]
 
 
-def find_lowest_contours(contourL, contourR):
+def find_lowest_contours(contourL, contourR,verbose=False):
 	leftYMin = np.max(contourL[:,:,1])
 	rightYMin = np.max(contourR[:,:,1])
-	print("Contour Mins: ", leftYMin,rightYMin)
+	if verbose == True:
+		print("Contour Mins: ", leftYMin,rightYMin)
 	return [leftYMin, rightYMin]
 
 def histogram_sliding_filter(hist, window_size=16, flag_plot=False):
-	n, depth = hist.shape
 	avg_hist = np.zeros_like(hist).astype(np.int32)
-
 	sliding_window = np.ones((window_size,))/window_size
-	for channel in range(depth):
-		tmp_hist = np.convolve(hist[:,channel], sliding_window , mode='same')
-		avg_hist[:,channel] = tmp_hist
+
+	try:
+		n, depth = hist.shape
+	except:
+		n = hist.shape
+		depth = None
 
 	if flag_plot == True:
 		plt.figure(1)
 		plt.clf()
 		plt.title('Smoothed Histogram of the image')
-		plt.plot(range(avg_hist.shape[0]), avg_hist[:,0])
-		plt.plot(range(avg_hist.shape[0]), avg_hist[:,1])
-		plt.plot(range(avg_hist.shape[0]), avg_hist[:,2])
+
+	if depth == None:
+		avg_hist = np.convolve(hist[:], sliding_window , mode='same')
+		if flag_plot == True:
+			plt.plot(range(avg_hist.shape[0]), avg_hist[:])
+	else:
+		for channel in range(depth):
+			tmp_hist = np.convolve(hist[:,channel], sliding_window , mode='same')
+			avg_hist[:,channel] = tmp_hist
+			if flag_plot == True:
+				plt.plot(range(avg_hist.shape[0]), avg_hist[:,channel])
+				# plt.plot(range(avg_hist.shape[0]), avg_hist[:,1])
+				# plt.plot(range(avg_hist.shape[0]), avg_hist[:,2])
+
 
 	return avg_hist
 
@@ -342,8 +406,14 @@ def find_horizon(img, nwindows=8, minpix=300, window_height=20, flag_plot=False)
 
 def is_horizon_present(img, nrows=10, verbose=False, flag_plot=False):
 	_img = cv2.resize(img, (640,480))
-
 	starting_row = 0
+
+	# cv2.imshow("Before Green Mod", _img)
+	# print(_img.dtype)
+	_img[:,:,1] = (2 * _img[:,:,1] - _img[:,:,0] - _img[:,:,2])
+
+	# print(_img.dtype)
+	# cv2.imshow("After Green Mod", _img)
 
 	# rows_right = _img[starting_row:starting_row+nrows,(3*_img.shape[1])//4:]
 	# rows_left = _img[starting_row:starting_row+nrows,_img.shape[1]//4:_img.shape[1]//2]
@@ -354,13 +424,13 @@ def is_horizon_present(img, nrows=10, verbose=False, flag_plot=False):
 	hist_right = np.sum(rows_right, axis=0)/nrows
 	hist_left = np.sum(rows_left, axis=0)/nrows
 
-	r_avg_right = np.int(np.average(hist_right[0]))
-	g_avg_right = np.int(np.average(hist_right[1]))
-	b_avg_right = np.int(np.average(hist_right[2]))
+	r_avg_right = np.int(np.mean(hist_right[:,0]))
+	g_avg_right = np.int(np.mean(hist_right[:,1]))
+	b_avg_right = np.int(np.mean(hist_right[:,2]))
 
-	r_avg_left = np.int(np.average(hist_left[0]))
-	g_avg_left = np.int(np.average(hist_left[1]))
-	b_avg_left = np.int(np.average(hist_left[2]))
+	r_avg_left = np.int(np.mean(hist_left[:,0]))
+	g_avg_left = np.int(np.mean(hist_left[:,1]))
+	b_avg_left = np.int(np.mean(hist_left[:,2]))
 
 	rgb_right = [r_avg_right, g_avg_right, b_avg_right]
 	rgb_left = [r_avg_left, g_avg_left, b_avg_left]

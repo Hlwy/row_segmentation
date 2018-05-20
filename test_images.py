@@ -34,12 +34,15 @@ from utils import utils as ut
 from utils import filter_utils as fut
 from utils import seg_utils as sut
 from utils import line_utils as lut
+from utils import contour_utils as contUtils
 
 
-def update(img):
+def update(img, verbose=False):
 	global plt
-	xbuf = 200
-
+	xbuf = 100
+	xL = 0; xR = 0; yminL = 0 ; yminR = 0
+	xLf = 0; xRf = 0; yLf = 0; yRf = 0
+	xR0 = 0; xL0 = 0; yL0 = 0; yR0 = 0
 	# duration = 0
 	start = time()
 
@@ -59,7 +62,7 @@ def update(img):
 		horizon_display = filtered_img
 
 	tmpFil = fut.apply_morph(horizon_filtered, ks=[6,6],flag_open=False)
-
+	ret, threshed_img = cv2.threshold(cv2.cvtColor(tmpFil, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
 	# tmpDisp1 = np.hstack((_img,filtered_img))
 	# tmpDisp2 = np.hstack((horizon_filtered,tmpFil))
 	# tmpDisp = np.vstack((tmpDisp1,tmpDisp2))
@@ -68,17 +71,31 @@ def update(img):
 	# plt.imshow(tmpDisp)
 	# plt.show()
 
-	hist = sut.custom_hist(tmpFil,[0,h],[xbuf,w-xbuf],axis=0)
+	# hist = sut.custom_hist(tmpFil,[0,h],[xbuf,w-xbuf],axis=0, flag_plot=True)
+	hist = sut.custom_hist(threshed_img,[0,h],[xbuf,w-xbuf],axis=0)
+	smoothHist = sut.histogram_sliding_filter(hist, window_size=16)
+	xmid = sut.find_row_ends(smoothHist)
 
-	xmid = np.argmin(hist[:,0])+xbuf
+	# print(xmid[0], xmid[1])
+	# print(xmid.dtype)
 
 	# Crop the image into two halves
-	beg = xmid; end = w
+	try:
+		begL = 0
+		endL = int(xmid[0])
+		begR = int(xmid[1])
+		endR = w
+	except:
+		begL = 0
+		endL = int(xmid)
+		begR = endL
+		endR = w
+
 	# img_right = horizon_filtered[:,beg:end]
 	# img_left = horizon_filtered[:,0:beg]
 
-	img_right = tmpFil[:,beg:end]
-	img_left = tmpFil[:,0:beg]
+	img_left = tmpFil[:,begL:endL]
+	img_right = tmpFil[:,begR:endR]
 
 	ret, threshed_imgL = cv2.threshold(cv2.cvtColor(img_left, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
 	ret, threshed_imgR = cv2.threshold(cv2.cvtColor(img_right, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
@@ -98,26 +115,37 @@ def update(img):
 	careaR = cv2.contourArea(cR)
 
 	if careaL < 5000.0:
-		xmid = w/2
-		lineL, lineR, disp_lines = lut.ransac_meth2(horizon_filtered,xmid)
-		contMins = [0,0]
 		# print("Largest Contour to small Looking for lines via RANSAC")
+		xmid = w/2
+		lineL, lineR, disp_lines = lut.ransac_meth2(horizon_filtered,xmid,max_trials=20,stop_probability=0.80,display=_img)
+		contMins = [0,0]
+
+		# xL0 = np.int(lineL[0][0]); xR0 = np.int(lineR[0][0])
+		# yL0 = np.int(lineL[-1][0]); yR0 = np.int(lineR[-1][0])
+		#
+		# xLf = np.int(lineL[0][-1]); xRf = np.int(lineR[0][-1])
+		# yLf = np.int(lineL[1][-1]); yRf = np.int(lineR[1][-1])
+		# xL = xL0; yminL = yL0; xR = xRf; yminR = yRf
+
 	else:
 		yminL = 0; yminR = 0
-		lineL, lineR, disp_lines = lut.ransac_meth2(horizon_filtered,xmid)
+		lineL, lineR, disp_lines = lut.ransac_meth2(horizon_filtered,endL,begR,max_trials=30,stop_probability=0.80, display=_img)
 
-		xL0 = int(lineL[0][0]); xR0 = int(lineR[0][0])
-		yL0 = int(lineL[-1][0]); yR0 = int(lineR[-1][0])
+		xL0 = np.int(lineL[0][0]); xR0 = np.int(lineR[0][0]) + begR
+		yL0 = np.int(lineL[-1][0]); yR0 = np.int(lineR[-1][0])
 
-		xLf = int(lineL[0][-1]); xRf = int(lineR[0][-1])
-		yLf = int(lineL[1][-1]); yRf = int(lineR[1][-1])
+		xLf = np.int(lineL[0][-1]); xRf = np.int(lineR[0][-1]) + begR
+		yLf = np.int(lineL[1][-1]); yRf = np.int(lineR[1][-1])
 
-		# print("X Initials: ", xL0,xR0)
-		# print("Y Initials: ", yL0,yR0)
-		# print("X Finals: ", xLf,xRf)
-		# print("Y Finals: ", yLf,yRf)
+		if verbose == True:
+			print("X Initials: ", xL0,xR0)
+			print("Y Initials: ", yL0,yR0)
+			print("X Finals: ", xLf,xRf)
+			print("Y Finals: ", yLf,yRf)
 
-		winMins = lut.find_lowest_windows(img_left,img_right,lineL,lineR)
+		# contUtils.show_hulls(img_left,img_right,cL,cR,tmpFil)
+
+		winMins = lut.find_lowest_windows(img_left,img_right,lineL,lineR,flag_beginning=True)
 		contMins = sut.find_lowest_contours(cL,cR)
 		histMins = sut.find_lowest_histograms(img_left,img_right)
 
@@ -137,22 +165,37 @@ def update(img):
 		if winMins[1] > yminR:
 			yminR = winMins[1]
 
-		# print("Chosen Mins: ", yminL,yminR)
+		if verbose == True:
+			print("Chosen Mins: ", yminL,yminR)
 
 		xL = lut.slide_window_right(img_left,[xL0,yminL],threshold=300,size=[30,50])
-		xR = lut.slide_window_left(img_right,[xR0,yminR],threshold=300,size=[15,50]) + xmid
+		xR = lut.slide_window_left(img_right,[xR0,yminR],threshold=300,size=[15,50]) + begR
 
-
+		winMins2 = lut.find_lowest_windows(img_left,img_right,lineL,lineR,window_size=[40,10],flag_beginning=False)
+		yLf = -int(winMins2[0])
+		yR0 = -int(winMins2[1])
+		# print(winMins2)
 		# cv2.circle(disp_lines,(xL,yminL),2,(255,0,0),-1)
 		# cv2.circle(disp_lines,(xR,yminR),2,(0,0,255),-1)
-		cv2.line(disp_lines,(int(xL),int(yminL)),(int(xLf),int(-yLf)),(255,255,0))
-		cv2.line(disp_lines,(int(xR0),int(-yR0)),(int(xR),int(yminR)),(0,255,255))
 
-
+		# cv2.line(disp_lines,(int(xL),int(yminL)),(int(xLf),int(winMins2[0])),(255,255,0))
+		# cv2.line(disp_lines,(int(xR0),int(winMins2[1])),(int(xR),int(yminR)),(0,255,255))
 
 	duration = time() - start
-	cv2.imshow("Lines Found: RANSAC", disp_lines)
-	cv2.imshow("morphed",tmpFil)
+	
+	h,w,c = cur_img.shape
+	ploty = np.linspace(0, w-1, w)
+	left_fit = np.polyfit(left_ys, left_xs, 1)
+	right_fit = np.polyfit(right_ys, right_xs, 1)
+	plot_leftx = left_fit[0]*ploty + left_fit[1]
+	plot_rightx = right_fit[0]*ploty + right_fit[1]
+
+	cv2.line(_img,(int(xL),int(yminL)),(int(xLf),int(-yLf)),(255,0,0),thickness=3)
+	cv2.line(_img,(int(xR0),int(-yR0)),(int(xR),int(yminR)),(0,0,255),thickness=3)
+
+	cv2.imshow("Lines Found: RANSAC Before Modification", disp_lines)
+	cv2.imshow("Lines Found: RANSAC After Modification", _img)
+	# cv2.imshow("morphed",tmpFil)
 	print("Processing Duration: " + str(duration))
 
 	return disp_lines
