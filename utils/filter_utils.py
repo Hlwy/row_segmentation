@@ -66,31 +66,35 @@ def filter_green(_img, flag_invert=1, flip_order=None):
 
 	return res, comp_mask
 
-def filter_brown(_img, use_test=True):
+def filter_out_brown(_img, use_test=True):
 	tmp = cv2.resize(_img, (640,480))
 	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
 	yuv = cv2.cvtColor(tmp,cv2.COLOR_BGR2YUV)
 
 
 	if use_test == True:
-		lower_yuv_brown = np.array([38, 134, 131])
-		upper_yuv_brown = np.array([195, 163, 150])
+		lower_yuv_brown = np.array([72, 107, 107])
+		upper_yuv_brown = np.array([148, 129, 135])
+		# lower_yuv_brown = np.array([38, 134, 131]) # Alright
+		# upper_yuv_brown = np.array([195, 163, 150]) # Alright
 
-		lower_hsv_brown = np.array([32, 52, 0])
-		upper_hsv_brown = np.array([107, 255, 255])
+		lower_hsv_brown = np.array([18, 31, 25])
+		upper_hsv_brown = np.array([111, 255, 130])
+		# lower_hsv_brown = np.array([32, 52, 0]) # Alright
+		# upper_hsv_brown = np.array([107, 255, 255])  # Alright
 	else:
 		lower_yuv_brown = np.array([0, 0, 0]) # Original
 		upper_yuv_brown = np.array([164, 126, 126]) # Original
 
-		upper_hsv_brown = np.array([255, 255, 164]) # Original
 		lower_hsv_brown = np.array([32, 52, 118]) # Original
+		upper_hsv_brown = np.array([255, 255, 164]) # Original
 
 
 	mask_yuv = cv2.inRange(yuv, lower_yuv_brown, upper_yuv_brown)
 	if use_test == False:
 		_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY)
 	else:
-		_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY_INV)
+		_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY)
 	res_yuv = cv2.bitwise_and(tmp, tmp, mask = mask_yuv)
 
 
@@ -99,6 +103,7 @@ def filter_brown(_img, use_test=True):
 		_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
 	else:
 		_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
+		# _, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY) # Alright
 	res_hsv = cv2.bitwise_and(tmp, tmp, mask = mask_hsv)
 
 
@@ -107,6 +112,7 @@ def filter_brown(_img, use_test=True):
 		_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
 	else:
 		_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
+		# _, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY) # Alright
 	res = cv2.bitwise_and(tmp, tmp, mask = comp_mask)
 
 	return res, comp_mask
@@ -228,7 +234,7 @@ def update_filter(img, filter_index=1,mask_flag=True,use_raw=True, verbose=False
 	if filter_index == 0:
 		res,mask = filter_green(img)
 	elif filter_index == 1:
-		res,mask = filter_brown(img)
+		res,mask = filter_out_brown(img)
 
 	if mask_flag == True:
 		color_mask = add_green_mask(mask)

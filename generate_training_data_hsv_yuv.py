@@ -178,17 +178,14 @@ if __name__ == "__main__" :
 			i = i + 1
 			if i >= n:
 				i = 0
-
 			print('Next Image ------ ' + str(_img_names[i]))
 			tmp = cv2.resize(_imgs[i], (640,480))
-			# fut.filter_custom(tmp)
 		if key == ord('o'):
 			i = i - 1
 			if i < 0:
 				i = n - 1
 			print('Previous Image ------ ' + str(_img_names[i]))
 			tmp = cv2.resize(_imgs[i], (640,480))
-			# fut.filter_custom(tmp)
 
 		cv2.imshow("image", tmp)
 	cv2.destroyAllWindows()

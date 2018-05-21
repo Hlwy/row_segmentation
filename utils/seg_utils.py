@@ -238,8 +238,6 @@ def histogram_sliding_filter(hist, window_size=16, flag_plot=False):
 				plt.plot(range(avg_hist.shape[0]), avg_hist[:,channel])
 				# plt.plot(range(avg_hist.shape[0]), avg_hist[:,1])
 				# plt.plot(range(avg_hist.shape[0]), avg_hist[:,2])
-
-
 	return avg_hist
 
 def find_horizon_simple(v_hist,window_size=16):

@@ -1219,6 +1219,7 @@ def updateLines(img, xbuf=100,verbose=False,timer=False,show_images=True,crop_po
 	clone = np.copy(_img)
 
 	tmp = sut.crop_below_pixel(_img,crop_point)
+	hmax,wmax,cmax = _img.shape
 
 	disp_lines = np.copy(tmp)
 	h,w,c = tmp.shape
@@ -1241,8 +1242,8 @@ def updateLines(img, xbuf=100,verbose=False,timer=False,show_images=True,crop_po
 	if crop_point > 0:
 		horizon_filtered_crop = sut.crop_below_pixel(horizon_filtered,crop_point)
 
-	tmpFil = fut.apply_morph(horizon_filtered, ks=[7,1],flag_open=False)
-	tmpFil_crop = fut.apply_morph(horizon_filtered_crop, ks=[7,1],flag_open=False)
+	tmpFil = fut.apply_morph(horizon_filtered, ks=[5,5],flag_open=False)
+	tmpFil_crop = fut.apply_morph(horizon_filtered_crop, ks=[5,5],flag_open=False)
 	ret, threshed_img = cv2.threshold(cv2.cvtColor(tmpFil, cv2.COLOR_BGR2GRAY),2, 255, cv2.THRESH_BINARY)
 
 	# tmpDisp1 = np.hstack((_img,filtered_img))
@@ -1293,7 +1294,7 @@ def updateLines(img, xbuf=100,verbose=False,timer=False,show_images=True,crop_po
 
 	except:
 		print("ERROR: function \'updateLines\' could not find contours ")
-		return img
+		return clone
 
 	if careaL < 5000.0:
 		# print("Largest Contour to small Looking for lines via RANSAC")
@@ -1304,7 +1305,7 @@ def updateLines(img, xbuf=100,verbose=False,timer=False,show_images=True,crop_po
 			early_season = True
 		except:
 			print("ERROR: function \'updateLines\' could not find lines for small contour section")
-			return img
+			return clone
 	else:
 		yminL = 0; yminR = 0
 		try:
@@ -1368,7 +1369,7 @@ def updateLines(img, xbuf=100,verbose=False,timer=False,show_images=True,crop_po
 							])
 		except:
 			print("ERROR: function \'updateLines\' could not find lines for large contour section")
-			return img
+			return clone
 
 	if timer:
 		duration = time() - start
@@ -1397,8 +1398,20 @@ def updateLines(img, xbuf=100,verbose=False,timer=False,show_images=True,crop_po
 	# print line_right[:,0]
 	# print line_right[:,-1]
 
-	line_mid = find_middle_line(line_left,line_right)
+	# print hmax
+	line_mid_coef, line_mid, midLinePts = find_middle_line(line_left,line_right,hmax)
+	line_mid_ref_coef, intersect, refPts = find_middle_reference_line(line_left,line_right,hmax)
+
+	theta_lines, x_intercept = find_line_angle(midLinePts,refPts)
+	print("	Navigation Line [Angle(deg), X-Intercept(px)]: " + str([theta_lines*180/math.pi, x_intercept]))
+	plot_line_ref = line_mid_ref_coef[0]*ploty + line_mid_ref_coef[1]
+	line_ref = np.array([plot_line_ref,ploty])
 	cv2.line(tmp,(int(line_mid[0,0]),int(line_mid[1,0])),(int(line_mid[0,-1]),int(line_mid[1,-1])),(0,255,255),thickness=3)
+	cv2.line(tmp,(int(line_ref[0,0]),int(line_ref[1,0])),(int(line_ref[0,-1]),int(line_ref[1,-1])),(35,128,58),thickness=3)
+	cv2.circle(tmp,(int(intersect[0]),int(intersect[1])),5,(255,255,0),-1)
+	cv2.circle(tmp,(int(line_mid[0,-1]),int(hmax)),5,(255,0,255),-1)
+	cv2.circle(tmp,(int(wmax/2),int(hmax)),8,(255,0,255),-1)
+
 	if show_images:
 		cv2.imshow("Lines Found: RANSAC Before Modification", disp_lines)
 		cv2.imshow("Lines Found: RANSAC After Modification", tmp)
@@ -1407,30 +1420,140 @@ def updateLines(img, xbuf=100,verbose=False,timer=False,show_images=True,crop_po
 	return tmp
 
 
-def find_middle_line(line_left,line_right,plot=False):
+def find_middle_line(line_left,line_right,limit=None,plot=False):
 	rl,cl = line_left.shape
 	rr,cr = line_right.shape
-	mid = []
-	# print(cl,cr)
-	# print("Size of data: " + str(nData))
+	midLine = []; midLine_coef = []
 
-	nData = min(cl,cr)
-	# nData = np.min(len(line_left),len(line_right))
+	try:
+		nData = limit
+		rng = range(nData)
+	except:
+		nData = min(cl,cr)
+		rng = range(nData)
 
-	midx = [np.mean([line_left[0][i], line_right[0][i]]) for i in range(nData)]
-	midy = [np.mean([line_left[1][i], line_right[1][i]]) for i in range(nData)]
+	# print("Data Limit: ", nData)
+	# Could reduce this to just using the end points to save some time
+	midx = [np.mean([line_left[0][i], line_right[0][i]]) for i in rng]
+	midy = [np.mean([line_left[1][i], line_right[1][i]]) for i in rng]
+
+	pts = np.array([ [midx[0], midy[0]],
+					 [midx[-1], midy[-1]]
+	])
+
+	try:
+		midLine_coef = np.polyfit(pts[:,1], pts[:,0], 1)
+	except:
+		print("ERROR: Could not find middle reference line coefficients")
+		return False
 
 	if plot:
+		plot_ref = midLine_coef[0]*line_left[1][:] + midLine_coef[1]
 		plt.plot(line_left[0,:], line_left[1,:],c='blue')
 		plt.plot(line_right[0,:], line_right[1,:],c='red')
 		plt.plot(midx, midy, '--', c='yellow')
+		plt.plot(plot_ref, line_left[1][:], '+', c='green')
 		plt.show()
 
-	mid = np.array([midx,midy])
-	# mid = np.hstack(midy)
-	# print mid[:,0]
-	return mid
+	midLine = np.array([midx,midy])
+	return midLine_coef, midLine, pts
 
-def find_line_angle(line_in,line_ref):
+def find_middle_reference_line(line_left,line_right, bottom_pixel):
+	interPt = find_line_intersection(line_left, line_right)
+	pts = np.array([ [interPt[0], interPt[1]],
+					 [interPt[0],bottom_pixel]
+	])
 
-	return 1
+	try:
+		line_fit = np.polyfit(pts[:,1], pts[:,0], 1)
+		return line_fit,interPt, pts
+	except:
+		print("ERROR: Could not find middle reference line")
+		return False
+
+def find_line_angle(line_in_pts,line_ref_pts,verbose=True):
+	angleIn = 0; angleRef = 0
+	# print line_in_pts
+	# print line_ref_pts
+
+	x1r = int(line_ref_pts[0][0]); y1r = int(line_ref_pts[0][1])
+	x2r = int(line_ref_pts[1][0]); y2r = int(line_ref_pts[1][1])
+
+	x1i = int(line_in_pts[0][0]); y1i = int(line_in_pts[0][1])
+	x2i = int(line_in_pts[1][0]); y2i = int(line_in_pts[1][1])
+
+	inner_productr = x1r*x2r + y1r*y2r
+	len1r = math.hypot(x1r, y1r)
+	len2r = math.hypot(x2r, y2r)
+
+	inner_producti = x1i*x2i + y1i*y2i
+	len1i = math.hypot(x1i, y1i)
+	len2i = math.hypot(x2i, y2i)
+
+	if verbose == True:
+		print "Reference Pts: ",x1r,y1r,x2r,y2r
+		print "Input Pts: ", x1i,y1i,x2i,y2i
+
+	x1 = (x2r - x1r); y1 = (y2r-y1r)
+	x2 = (x2i - x1i); y2 = (y2i-y1i)
+	inner_product = (x1*x2) + (y1*y2)
+	len1 = math.hypot(x1, y1)
+	len2 = math.hypot(x2, y2)
+
+	try:
+		angleTest = math.acos(inner_product/(len1*len2))
+		angleTest_deg = (angleTest*180/math.pi)
+	except:
+		angleTest = 0
+		print("ERROR: Could not find the angle of the middle reference line")
+
+	if x2i < x1r:
+		angle_out = -1*angleTest
+	else:
+		angle_out = angleTest
+	# try:
+	# 	angle = math.atan2((y1i-y2r),(x2i-x1r))
+	# 	angle_deg = angle*180/math.pi
+	# except:
+	# 	angle = 0
+	# 	print("ERROR")
+	#
+	# if angle < 0:
+	# 	angle_out = (math.pi/2)+angle
+	# else:
+	# 	angle_out = (math.pi/2)-angle
+
+	# print("Angle of the Middle Line (deg): ", angleTest_deg)
+	return angle_out,x1r
+
+def line(p1, p2):
+	A = (p1[1] - p2[1])
+	B = (p2[0] - p1[0])
+	C = (p1[0]*p2[1] - p2[0]*p1[1])
+	return A, B, -C
+
+def intersection(L1, L2):
+	D  = L1[0] * L2[1] - L1[1] * L2[0]
+	Dx = L1[2] * L2[1] - L1[1] * L2[2]
+	Dy = L1[0] * L2[2] - L1[2] * L2[0]
+	if D != 0:
+		x = Dx / D
+		y = Dy / D
+		return x,y
+	else:
+		return False
+
+def find_line_intersection(line1,line2):
+	x00 = line1[0][0]; y00 = line1[1][0]; x01 = line1[0][-1]; y01 = line1[1][-1]
+	x10 = line2[0][0]; y10 = line2[1][0]; x11 = line2[0][-1]; y11 = line2[1][-1]
+
+	L1 = line([x00,y00], [x01,y01])
+	L2 = line([x10, y10], [x11,y11])
+
+	R = intersection(L1, L2)
+	if R:
+		print "Intersection detected:", R
+		return R
+	else:
+		print "No single intersection point detected"
+		return False
