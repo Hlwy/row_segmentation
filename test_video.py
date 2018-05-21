@@ -92,8 +92,11 @@ if __name__ == "__main__" :
 	_outputFile = args["out"]
 	_imgs, _ = ut.get_images_by_dir(_img)
 	img = _imgs[0]	# Input video file as OpenCV VideoCapture device
+
 	# video_path = '/home/hunter/data/vids/early_season/1/VID_20170426_145010.mp4'
-	video_path = '/home/hunter/data/vids/late_season/weeds_in_row/july5-2017/1/2video0.avi'
+	# video_path = '/home/hunter/data/vids/late_season/weeds_in_row/july5-2017/1/2video0.avi'
+	# video_path = '/home/hunter/data/training_raw/late_season/weeds_in_row/july5-2017/1/2video0.avi'
+	video_path = '/home/hunter/data/training_raw/early_season/5/VID_20170426_144800.mp4'
 
 	# create trackbars for color change
 	cv2.namedWindow('image')
@@ -149,7 +152,7 @@ if __name__ == "__main__" :
 
 				_, img = cap.retrieve()
 				cur_img = cv2.resize(img, (640,480))
-				post_img = update(cur_img)
+				post_img = lut.updateLines(cur_img)
 				out_img = post_img.astype(np.uint8)
 
 				duration += time() - start

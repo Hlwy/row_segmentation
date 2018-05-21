@@ -5,6 +5,11 @@
 # 	TODO
 # Current Recommended Usage: (in terminal)
 # 	TODO
+import utils as ut
+import filter_utils as fut
+import seg_utils as sut
+import contour_utils as contUtils
+
 from matplotlib import pyplot as plt
 from sklearn import linear_model, datasets, neighbors
 # from sklearn.neighbors import NearestNeighbors
@@ -189,7 +194,7 @@ def nearestneighborsMeth2(img,midpoint=None,n_neighbors=2, display=None):
 	# return line_X, line_y_ransac
 	return display_lines, line_yL
 
-def ransac_meth2(img,midpointL=None,midpointR=None,max_trials=50,stop_probability=0.80, display=None):
+def ransac_meth2(img,midpointL=None,midpointR=None,max_trials=50,stop_probability=0.80, display=None,y_offset=0):
 	tmp = np.copy(img)
 	h,w,c = img.shape
 	begL = 0; begR = 0
@@ -245,16 +250,24 @@ def ransac_meth2(img,midpointL=None,midpointR=None,max_trials=50,stop_probabilit
 	line_yL = ransacL.predict(line_xL)
 
 	line_yR = ransacR.predict(line_xR)
-
 	line_xR = np.arange(nonzerox_right.min(), nonzerox_right.max())[:, np.newaxis]
 
-	cv2.line(display_lines,(int(line_xR[0] + begR),int(-line_yR[0])),(int(line_xR[-1] + begR),int(-line_yR[-1])),(0,0,255),thickness=3)
-	cv2.line(display_lines,(int(line_xL[0]),int(-line_yL[0])),(int(line_xL[-1]),int(-line_yL[-1])),(255,0,0),thickness=3)
+
+	cv2.line(display_lines,(int(line_xR[0] + begR),int(-line_yR[0] + y_offset)),(int(line_xR[-1] + begR),int(-line_yR[-1] + y_offset)),(0,0,255),thickness=3)
+	cv2.line(display_lines,(int(line_xL[0]),int(-line_yL[0] + y_offset)),(int(line_xL[-1]),int(-line_yL[-1] + y_offset)),(255,0,0),thickness=3)
+
+	endpointsL = np.array([ [int(line_xL[0]),int(-line_yL[0] + y_offset)],
+							[int(line_xL[-1]),int(-line_yL[-1] + y_offset)]
+						 ])
+
+	endpointsR = np.array([ [int(line_xR[0] + begR),int(-line_yR[0] + y_offset)],
+							[int(line_xR[-1] + begR),int(-line_yR[-1] + y_offset)]
+						 ])
 
 	# print("Estimated coefficients (true, linear regression, RANSAC):")
 	# print(ransac.estimator_.coef_)
 	# return line_X, line_y_ransac
-	return [line_xL,line_yL], [line_xR,line_yR],display_lines
+	return [line_xL,line_yL], [line_xR,line_yR],display_lines, endpointsL,endpointsR
 
 def find_lowest_windows(img_left,img_right,line_left,line_right,midpointL=None,midpointR=None, window_size=[30,30], flag_beginning=True,verbose=False):
 	lineL = np.array(line_left); lineR = np.array(line_right)
@@ -1190,3 +1203,234 @@ def calculate_curv_and_pos(img,left_fit, right_fit):
 	# angle = int(math.atan((y1-y2)/(x2-x1))*180/math.pi) # Random forum code snippet
 
 	return curvature,distance_from_center
+
+
+def updateLines(img, xbuf=100,verbose=False,timer=False,show_images=True,crop_point=100):
+	xL = 0; xR = 0; yminL = 0 ; yminR = 0
+	xLf = 0; xRf = 0; yLf = 0; yRf = 0
+	xR0 = 0; xL0 = 0; yL0 = 0; yR0 = 0
+	tmp = []; filtered_img_crop = []; ptsL = []; ptsR = []
+	duration = 0; early_season = False
+
+	if timer:
+		start = time()
+
+	_img = cv2.resize(img, (640,480))
+	clone = np.copy(_img)
+
+	tmp = sut.crop_below_pixel(_img,crop_point)
+
+	disp_lines = np.copy(tmp)
+	h,w,c = tmp.shape
+
+	horizon_present = sut.is_horizon_present(tmp)
+	filtered_img, _ = fut.update_filter(clone)
+
+	if crop_point > 0:
+		filtered_img_crop = sut.crop_below_pixel(filtered_img,crop_point)
+	else:
+		filtered_img_crop = np.copy(filtered_img)
+
+	if horizon_present == True:
+		horizon_fit, horizon_inds, horizon_filtered, horizon_display = sut.find_horizon(filtered_img)
+		# cv2.imshow("Found Horizon Line", horizon_display)
+	else:
+		horizon_filtered = filtered_img
+		horizon_display = filtered_img
+
+	if crop_point > 0:
+		horizon_filtered_crop = sut.crop_below_pixel(horizon_filtered,crop_point)
+
+	tmpFil = fut.apply_morph(horizon_filtered, ks=[7,1],flag_open=False)
+	tmpFil_crop = fut.apply_morph(horizon_filtered_crop, ks=[7,1],flag_open=False)
+	ret, threshed_img = cv2.threshold(cv2.cvtColor(tmpFil, cv2.COLOR_BGR2GRAY),2, 255, cv2.THRESH_BINARY)
+
+	# tmpDisp1 = np.hstack((_img,filtered_img))
+	# tmpDisp2 = np.hstack((horizon_filtered,tmpFil))
+	# tmpDisp = np.vstack((tmpDisp1,tmpDisp2))
+	# plt.figure(1)
+	# plt.clf()
+	# plt.imshow(tmpDisp)
+	# plt.show()
+
+	hist = sut.custom_hist(threshed_img,[0,h],[xbuf,w-xbuf],axis=0)
+	smoothHist = sut.histogram_sliding_filter(hist, window_size=16)
+	xmid = sut.find_row_ends(smoothHist)
+
+	# Crop the image into two halves
+	try:
+		begL = 0
+		endL = int(xmid[0])
+		begR = int(xmid[1])
+		endR = w
+	except:
+		begL = 0
+		endL = int(xmid)
+		begR = endL
+		endR = w
+
+	img_left = tmpFil[:,begL:endL]
+	img_right = tmpFil[:,begR:endR]
+	img_left_crop = tmpFil_crop[:,begL:endL]
+	img_right_crop = tmpFil_crop[:,begR:endR]
+
+	ret, threshed_imgL = cv2.threshold(cv2.cvtColor(img_left, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
+	ret, threshed_imgR = cv2.threshold(cv2.cvtColor(img_right, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
+
+	# cv2.imshow("Image Left",threshed_imgL)
+	# cv2.imshow("Image Right",threshed_imgR)
+
+	imageL, contoursL, hierL = cv2.findContours(threshed_imgL, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+	imageR, contoursR, hierR = cv2.findContours(threshed_imgR, cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+	try:
+		cL = max(contoursL, key = cv2.contourArea)
+		cR = max(contoursR, key = cv2.contourArea)
+		cleft = np.array(cL).reshape(-1,2)
+		cright = np.array(cR).reshape(-1,2)
+
+		careaL = cv2.contourArea(cL)
+		careaR = cv2.contourArea(cR)
+
+	except:
+		print("ERROR: function \'updateLines\' could not find contours ")
+		return img
+
+	if careaL < 5000.0:
+		# print("Largest Contour to small Looking for lines via RANSAC")
+		xmid = w/2
+		contMins = [0,0]
+		try:
+			lineL, lineR, disp_lines,ptsL,ptsR = ransac_meth2(horizon_filtered_crop,xmid,max_trials=20,stop_probability=0.80,display=_img,y_offset=crop_point)
+			early_season = True
+		except:
+			print("ERROR: function \'updateLines\' could not find lines for small contour section")
+			return img
+	else:
+		yminL = 0; yminR = 0
+		try:
+			lineL, lineR, disp_lines,_,_ = ransac_meth2(horizon_filtered,endL,begR,max_trials=50,stop_probability=0.80, display=_img,y_offset=0)
+			early_season = False
+
+			xL0 = np.int(lineL[0][0]); xR0 = np.int(lineR[0][0]) + begR
+			yL0 = np.int(lineL[-1][0]);	yR0 = np.int(lineR[-1][0])
+			# yL0 = np.int(lineL[-1][0]) - int(crop_point)
+			# yR0 = np.int(lineR[-1][0]) - int(crop_point)
+
+			xLf = np.int(lineL[0][-1]); xRf = np.int(lineR[0][-1]) + begR
+			yLf = np.int(lineL[1][-1]);	yRf = np.int(lineR[1][-1])
+			# yLf = np.int(lineL[1][-1]) - int(crop_point)
+			# yRf = np.int(lineR[1][-1]) - int(crop_point)
+
+			if verbose == True:
+				print("X Initials: ", xL0,xR0)
+				print("Y Initials: ", yL0,yR0)
+				print("X Finals: ", xLf,xRf)
+				print("Y Finals: ", yLf,yRf)
+
+			# contUtils.show_hulls(img_left,img_right,cL,cR,tmpFil)
+
+			winMins = find_lowest_windows(img_left,img_right,lineL,lineR,flag_beginning=True)
+			contMins = sut.find_lowest_contours(cL,cR)
+			histMins = sut.find_lowest_histograms(img_left,img_right)
+
+			if contMins[0] > histMins[0]:
+				yminL = contMins[0]
+			else:
+				yminL = histMins[0]
+
+			if winMins[0] > yminL:
+				yminL = winMins[0]
+
+			if contMins[1] > histMins[1]:
+				yminR = contMins[1]
+			else:
+				yminR = histMins[1]
+
+			if winMins[1] > yminR:
+				yminR = winMins[1]
+
+			if verbose == True:
+				print("Chosen Mins: ", yminL,yminR)
+
+			xL = slide_window_right(img_left,[xL0,yminL],threshold=300,size=[30,50])
+			xR = slide_window_left(img_right,[xR0,yminR],threshold=300,size=[15,50]) + begR
+
+			winMins2 = find_lowest_windows(img_left,img_right,lineL,lineR,window_size=[40,10],flag_beginning=False)
+			yLf = -int(winMins2[0])
+			yR0 = -int(winMins2[1])
+
+			ptsL = np.array([ 	[int(xL),int(yminL)],
+								[int(xLf),int(-yLf)]
+							])
+
+			ptsR = np.array([ 	[int(xR0),int(-yR0)],
+								[int(xR),int(yminR)]
+							])
+		except:
+			print("ERROR: function \'updateLines\' could not find lines for large contour section")
+			return img
+
+	if timer:
+		duration = time() - start
+		print("Processing Duration: " + str(duration))
+
+	ploty = np.linspace(0, w-1, w)
+	left_fit = np.polyfit(ptsL[:,1], ptsL[:,0], 1)
+	right_fit = np.polyfit(ptsR[:,1], ptsR[:,0], 1)
+	plot_leftx = left_fit[0]*ploty + left_fit[1]
+	plot_rightx = right_fit[0]*ploty + right_fit[1]
+
+	tmp = clone
+	# if early_season == False:
+	# 	tmp = clone
+
+	cv2.line(tmp,(int(plot_leftx[0]),int(ploty[0])),(int(plot_leftx[-1]),int(ploty[-1])),(255,0,0),thickness=3)
+	cv2.line(tmp,(int(plot_rightx[0]),int(ploty[0])),(int(plot_rightx[-1]),int(ploty[-1])),(0,0,255),thickness=3)
+	# cv2.line(_img,(int(xL),int(yminL)),(int(xLf),int(-yLf)),(255,0,0),thickness=3)
+	# cv2.line(_img,(int(xR0),int(-yR0)),(int(xR),int(yminR)),(0,0,255),thickness=3)
+
+	line_left = np.array([plot_leftx,ploty])
+	line_right = np.array([plot_rightx,ploty])
+
+	# print line_left[:,0]
+	# print line_left[:,-1]
+	# print line_right[:,0]
+	# print line_right[:,-1]
+
+	line_mid = find_middle_line(line_left,line_right)
+	cv2.line(tmp,(int(line_mid[0,0]),int(line_mid[1,0])),(int(line_mid[0,-1]),int(line_mid[1,-1])),(0,255,255),thickness=3)
+	if show_images:
+		cv2.imshow("Lines Found: RANSAC Before Modification", disp_lines)
+		cv2.imshow("Lines Found: RANSAC After Modification", tmp)
+		cv2.imshow("morphed",tmpFil)
+
+	return tmp
+
+
+def find_middle_line(line_left,line_right,plot=False):
+	rl,cl = line_left.shape
+	rr,cr = line_right.shape
+	mid = []
+	# print(cl,cr)
+	# print("Size of data: " + str(nData))
+
+	nData = min(cl,cr)
+	# nData = np.min(len(line_left),len(line_right))
+
+	midx = [np.mean([line_left[0][i], line_right[0][i]]) for i in range(nData)]
+	midy = [np.mean([line_left[1][i], line_right[1][i]]) for i in range(nData)]
+
+	if plot:
+		plt.plot(line_left[0,:], line_left[1,:],c='blue')
+		plt.plot(line_right[0,:], line_right[1,:],c='red')
+		plt.plot(midx, midy, '--', c='yellow')
+		plt.show()
+
+	mid = np.array([midx,midy])
+	# mid = np.hstack(midy)
+	# print mid[:,0]
+	return mid
+
+def find_line_angle(line_in,line_ref):
+
+	return 1

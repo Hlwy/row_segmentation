@@ -198,7 +198,7 @@ def add_green_mask(white_mask):
 	res_mask = cv2.bitwise_and(green_mask, green_mask, mask = white_mask)
 	return res_mask
 
-def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=False):
+def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=True):
 	if shape == 0:
 		kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(int(ks[0]),int(ks[1])))
 	elif shape == 1:
@@ -211,7 +211,7 @@ def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=False):
 	closing = cv2.morphologyEx(blurred,cv2.MORPH_CLOSE,kernel)
 	if flag_show == True:
 		cv2.imshow('Before Morphing',_img)
-		cv2.imshow('Blurred',blurred)
+		# cv2.imshow('Blurred',blurred)
 		cv2.imshow('opened',opening)
 		cv2.imshow('closed',closing)
 
@@ -220,3 +220,34 @@ def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=False):
 	else:
 		out = closing
 	return out
+
+
+def update_filter(img, filter_index=1,mask_flag=True,use_raw=True, verbose=False):
+
+	# Process the new image
+	if filter_index == 0:
+		res,mask = filter_green(img)
+	elif filter_index == 1:
+		res,mask = filter_brown(img)
+
+	if mask_flag == True:
+		color_mask = add_green_mask(mask)
+		tmp_color_mask = color_mask
+	else:
+		color_mask = mask
+		tmp_color_mask = cv2.cvtColor(color_mask,cv2.COLOR_GRAY2BGR)
+
+	res2 = cv2.bitwise_and(img, img, mask = mask)
+
+	if use_raw == True:
+		filtered_img = res2
+	else:
+		filtered_img = tmp_color_mask
+
+	if verbose == True:
+		cv2.imshow("Color Filtered Image", res)
+		cv2.imshow("Color Filtered Mask", mask)
+		# cv2.imshow("Final Filtered Mask", res2)
+		cv2.imshow("Final Filtered Image", res2)
+
+	return filtered_img, mask
