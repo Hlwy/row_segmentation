@@ -1205,7 +1205,7 @@ def calculate_curv_and_pos(img,left_fit, right_fit):
 	return curvature,distance_from_center
 
 
-def updateLines(img, xbuf=100,verbose=False,timer=False,show_images=True,crop_point=100):
+def updateLines(img, xbuf=100,verbose=False,timer=False,show_images=True,crop_point=100,filtered=False):
 	xL = 0; xR = 0; yminL = 0 ; yminR = 0
 	xLf = 0; xRf = 0; yLf = 0; yRf = 0
 	xR0 = 0; xL0 = 0; yL0 = 0; yR0 = 0

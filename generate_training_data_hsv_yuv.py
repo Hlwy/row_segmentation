@@ -21,6 +21,8 @@ from matplotlib import pyplot as plt
 import numpy as np
 from utils import utils as ut
 from utils import filter_utils as fut
+from utils import line_utils as lut
+from utils import seg_utils as sut
 
 def onChange(pos):
 	global img
@@ -32,9 +34,11 @@ def onChange(pos):
 	global lower_yuv
 	global upper_yuv
 
+	xbuf = 100
 	img = _imgs[i]
 	# tmp = np.copy(img)
 	tmp = cv2.resize(img, (640,480))
+	h,w,c = tmp.shape
 
 	# get current positions of four trackbars
 	hmin = cv2.getTrackbarPos('Hmin','image')
@@ -49,6 +53,8 @@ def onChange(pos):
 	ymax = cv2.getTrackbarPos('Ymax','image')
 	umax = cv2.getTrackbarPos('Umax','image')
 	vvmax = cv2.getTrackbarPos('VVmax','image')
+	ks1 = cv2.getTrackbarPos('ks1','image')
+	ks2 = cv2.getTrackbarPos('ks2','image')
 	flag_yuv_inv = cv2.getTrackbarPos('yuvInv','image')
 	flag_hsv_inv = cv2.getTrackbarPos('hsvInv','image')
 	flag_final_inv = cv2.getTrackbarPos('finalInv','image')
@@ -96,6 +102,36 @@ def onChange(pos):
 	cv2.imshow('Composite mask',comp_mask)
 	cv2.imshow('Composite filtered',res)
 
+	tmpFil = fut.apply_morph(res, ks=[ks1,ks2],flag_open=True)
+	ret, threshed_img = cv2.threshold(cv2.cvtColor(tmpFil, cv2.COLOR_BGR2GRAY),2, 255, cv2.THRESH_BINARY)
+
+	hist = sut.custom_hist(threshed_img,[0,h],[xbuf,w-xbuf],axis=0)
+	smoothHist = sut.histogram_sliding_filter(hist, window_size=16)
+	xmid = sut.find_row_ends(smoothHist)
+
+	# Crop the image into two halves
+	try:
+		begL = 0
+		endL = int(xmid[0])
+		begR = int(xmid[1])
+		endR = w
+	except:
+		begL = 0
+		endL = int(xmid)
+		begR = endL
+		endR = w
+
+	img_left = tmpFil[:,begL:endL]
+	img_right = tmpFil[:,begR:endR]
+
+	ret, threshed_imgL = cv2.threshold(cv2.cvtColor(img_left, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
+	ret, threshed_imgR = cv2.threshold(cv2.cvtColor(img_right, cv2.COLOR_BGR2GRAY),10, 255, cv2.THRESH_BINARY)
+
+	lineL, lineR, disp_lines,_,_ = lut.ransac_meth2(tmpFil,endL,begR,max_trials=50,stop_probability=0.80, display=tmp,y_offset=0)
+	cv2.imshow("morphed",tmpFil)
+	cv2.imshow("lines",disp_lines)
+	# post_img = lut.updateLines(res)
+
 
 #Run Main
 if __name__ == "__main__" :
@@ -135,6 +171,8 @@ if __name__ == "__main__" :
 	cv2.createTrackbar('Ymax','image',164,255,onChange)
 	cv2.createTrackbar('Umax','image',126,255,onChange)
 	cv2.createTrackbar('VVmax','image',126,255,onChange)
+	cv2.createTrackbar('ks1','image',3,20,onChange)
+	cv2.createTrackbar('ks2','image',12,20,onChange)
 	cv2.createTrackbar('yuvInv','image',0,1,onChange)
 	cv2.createTrackbar('hsvInv','image',0,1,onChange)
 	cv2.createTrackbar('finalInv','image',0,1,onChange)
