@@ -58,64 +58,22 @@ int main(int argc, char** argv){
 		cv::resize(src,ssrc,cv::Size(w,h));
 	}
 
-	hsvFilter.print_internals();
-	cfilled = hsvFilter.filter_image(ssrc);
-	cv::imshow("HSV Filtered Image",cfilled);
-
-	yuvFilter.print_internals();
-	cfilled = yuvFilter.filter_image(ssrc);
-	cv::imshow("YUV Filtered Image",cfilled);
-
 	/** ---------------------------------------------------------
 	*		Filter out specific colors from source image
 	* --------------------------------------------------------- */
-	// def filter_out_brown(_img, use_test=True):
-	// 	tmp = cv2.resize(_img, (640,480))
-	// 	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
-	// 	yuv = cv2.cvtColor(tmp,cv2.COLOR_BGR2YUV)
-	//
-	//
-	// 	if use_test == True:
-	// 		lower_yuv_brown = np.array([72, 107, 107])
-	// 		upper_yuv_brown = np.array([148, 129, 135])
-	// 		# lower_yuv_brown = np.array([38, 134, 131]) # Alright
-	// 		# upper_yuv_brown = np.array([195, 163, 150]) # Alright
-	//
-	// 		lower_hsv_brown = np.array([18, 31, 25])
-	// 		upper_hsv_brown = np.array([111, 255, 130])
-	// 		# lower_hsv_brown = np.array([32, 52, 0]) # Alright
-	// 		# upper_hsv_brown = np.array([107, 255, 255])  # Alright
-	// 	else:
-	// 		lower_yuv_brown = np.array([0, 0, 0]) # Original
-	// 		upper_yuv_brown = np.array([164, 126, 126]) # Original
-	//
-	// 		lower_hsv_brown = np.array([32, 52, 118]) # Original
-	// 		upper_hsv_brown = np.array([255, 255, 164]) # Original
-	//
-	//
-	// 	mask_yuv = cv2.inRange(yuv, lower_yuv_brown, upper_yuv_brown)
-	// 	if use_test == False:
-	// 		_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY)
-	// 	else:
-	// 		_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY)
-	// 	res_yuv = cv2.bitwise_and(tmp, tmp, mask = mask_yuv)
-	//
-	//
-	// 	mask_hsv = cv2.inRange(hsv, lower_hsv_brown, upper_hsv_brown)
-	// 	if use_test == False:
+	hsvFilter.print_internals();
+	cfilled = hsvFilter.filter_color(ssrc);
+	cv::imshow("HSV Filtered Image",cfilled);
+
+	yuvFilter.print_internals();
+	cfilled = yuvFilter.filter_color(ssrc);
+	cv::imshow("YUV Filtered Image",cfilled);
+
 	// 		_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
-	// 	else:
-	// 		_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
-	// 		# _, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY) # Alright
 	// 	res_hsv = cv2.bitwise_and(tmp, tmp, mask = mask_hsv)
 	//
-	//
 	// 	comp_mask = cv2.bitwise_and(mask_yuv,mask_hsv)
-	// 	if use_test == False:
-	// 		_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
-	// 	else:
-	// 		_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
-	// 		# _, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY) # Alright
+	// 	_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
 	// 	res = cv2.bitwise_and(tmp, tmp, mask = comp_mask)
 	//
 	// 	return res, comp_mask

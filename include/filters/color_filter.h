@@ -19,8 +19,8 @@ class ColorFilter{
 private:
 	ColorSpace _cmap;			 // Color space that color filter is operating in
 	string _space_desc;			 // Color Space identifier for debugging
-	cv::Mat _img_space;			 // Copy of raw source image into specified color space
-	cv::Mat _mask;				 // Mask resultanting from color filtering
+	const cv::Mat _filtered;		 // Color Filtered Image of source image
+	const cv::Mat _mask;		 // Mask resultanting from color filtering
 
 	// Upper and Lower Thresholding Limits per channel
 	vector<int32_t> _upper_limits = {255, 255, 255};
@@ -36,7 +36,9 @@ public:
 	/**
 		Class Primary Usage Functions
 	*/
-	cv::Mat filter_image(const cv::Mat& src, bool show = false);
+	cv::Mat filter_color(const cv::Mat& src, bool show = false);
+	cv::Mat blur_filtered(int8_t index = 7,bool show = false);
+	cv::Mat morphed_filtered(int8_t kernel_size[2] = {5,5}, bool use_opened = false,bool show = false);
 
 	// Set Functions
 	void set_colorspace(ColorSpace cmap);

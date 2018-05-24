@@ -14,7 +14,7 @@ ColorFilter::ColorFilter(ColorSpace cmap){
 	this->set_colorspace(cmap);
 }
 
-cv::Mat ColorFilter::filter_image(const cv::Mat& src, bool show){
+cv::Mat ColorFilter::filter_color(const cv::Mat& src, bool show){
 	cv::Mat cmap_image, mask, cmap_filtered, result;
 	string lblSrc = "ColorFilter: [" + string(this->_space_desc) + "] Color Spaced Image";
 	string lblMask = "ColorFilter: [" + string(this->_space_desc) + "] Mask";
@@ -47,8 +47,29 @@ cv::Mat ColorFilter::filter_image(const cv::Mat& src, bool show){
 
 	// Store/return important variables
 	this->_mask = mask;
+	this->_filtered = result;
 	return result;
 }
+
+cv::Mat blur_filtered(int8_t index,bool show){
+	cv::Mat res, blurred;
+	string lblSrc = "ColorFilter: [" + string(this->_space_desc) + "] Un-Modified Image";
+	string lblBlur = "ColorFilter: [" + string(this->_space_desc) + "] Blurred Image";
+
+	// Un-pack inputs
+
+	// Apply Blurring Effects
+
+	if(show == true){
+		cv::namedWindow(lblSrc, CV_WINDOW_NORMAL);
+		cv::imshow(lblSrc,this->_filtered);
+		cv::namedWindow(lblBlur, CV_WINDOW_NORMAL);
+		cv::imshow(lblBlur,blurred);
+	}
+
+	return _filtered;
+}
+
 
 // Set Functions
 void ColorFilter::set_colorspace(ColorSpace cmap){
