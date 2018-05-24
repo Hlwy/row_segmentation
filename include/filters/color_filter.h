@@ -23,8 +23,8 @@ private:
 	const cv::Mat _mask;		 // Mask resultanting from color filtering
 
 	// Upper and Lower Thresholding Limits per channel
-	vector<int32_t> _upper_limits = {255, 255, 255};
-	vector<int32_t> _lower_limits = {0, 0, 0};
+	vector<int8_t> _upper_limits = {255, 255, 255};
+	vector<int8_t> _lower_limits = {0, 0, 0};
 public:
 	/**
 		Class Constructors/Deconstructors and Overloads
@@ -42,12 +42,12 @@ public:
 
 	// Set Functions
 	void set_colorspace(ColorSpace cmap);
-	void set_upper_limits(int32_t limits[3]);
-	void set_lower_limits(int32_t limits[3]);
+	void set_upper_limits(int8_t limits[3]);
+	void set_lower_limits(int8_t limits[3]);
 
 	// Get Functions
-	vector<int32_t> get_upper_limits();
-	vector<int32_t> get_lower_limits();
+	vector<int8_t> get_upper_limits();
+	vector<int8_t> get_lower_limits();
 
 	// Debugging Functions
 	void print_internals();

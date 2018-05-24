@@ -89,7 +89,7 @@ void ColorFilter::set_colorspace(ColorSpace cmap){
 	}
 }
 
-void ColorFilter::set_upper_limits(int32_t limits[3]){
+void ColorFilter::set_upper_limits(int8_t limits[3]){
 	// Check for errorneous limits
 	if(limits[0] > 255) this->_upper_limits[0] = 255;
 	else this->_upper_limits[0] = limits[0];
@@ -101,7 +101,7 @@ void ColorFilter::set_upper_limits(int32_t limits[3]){
 	else this->_upper_limits[2] = limits[2];
 }
 
-void ColorFilter::set_lower_limits(int32_t limits[3]){
+void ColorFilter::set_lower_limits(int8_t limits[3]){
 	// Check for errorneous limits
 	if(limits[0] < 0) this->_lower_limits[0] = 0;
 	else this->_lower_limits[0] = limits[0];
@@ -114,14 +114,14 @@ void ColorFilter::set_lower_limits(int32_t limits[3]){
 }
 
 // Get Functions
-vector<int32_t> ColorFilter::get_upper_limits(){return this->_upper_limits;}
-vector<int32_t> ColorFilter::get_lower_limits(){return this->_lower_limits;}
+vector<int8_t> ColorFilter::get_upper_limits(){return this->_upper_limits;}
+vector<int8_t> ColorFilter::get_lower_limits(){return this->_lower_limits;}
 
 // Debugging Functions
 void ColorFilter::print_internals(){
 	// Name contractions for easier printing
-	vector<int32_t> ll = this->_lower_limits;
-	vector<int32_t> ul = this->_upper_limits;
+	vector<int8_t> ll = this->_lower_limits;
+	vector<int8_t> ul = this->_upper_limits;
 
 	cout << on_magenta << "ColorFilter:" << reset << endl
 		<< "	Color Space Used: " << this->_space_desc << endl
