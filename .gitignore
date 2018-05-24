@@ -5,3 +5,6 @@ late_season/*
 early_season/*
 test/*
 models/*
+bin/*
+lib/*
+build/*
