@@ -185,7 +185,7 @@ if __name__ == "__main__" :
 	lower_yuv = []
 	upper_yuv = []
 
-	csvHeaders = ["image_path", "lower_yuv [Y]", "lower_yuv [U]", "lower_yuv [V]", "upper_yuv [Y]", "upper_yuv [U]", "upper_yuv [V]", "lower_hsv [H]", "lower_hsv [S]", "lower_hsv [V]", "upper_hsv [H]", "upper_hsv [S]","upper_hsv [V]"]
+	csvHeaders = ["image", "lower_yuv_y", "lower_yuv_u", "lower_yuv_v", "upper_yuv_y", "upper_yuv_u", "upper_yuv_v", "lower_hsv_h", "lower_hsv_s", "lower_hsv_v", "upper_hsv_h", "upper_hsv_s","upper_hsv_v"]
 	csvList = []
 
 	while True:

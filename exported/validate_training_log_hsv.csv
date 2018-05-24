@@ -1,0 +1,2 @@
+image_path,lower_yuv [Y],lower_yuv [U],lower_yuv [V],upper_yuv [Y],upper_yuv [U],upper_yuv [V],lower_hsv [H],lower_hsv [S],lower_hsv [V],upper_hsv [H],upper_hsv [S],upper_hsv [V]
+test/image_raw_2.png,0,0,90,159,145,127,32,53,118,255,255,110

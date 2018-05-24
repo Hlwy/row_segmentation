@@ -1,8 +1,0 @@
-image_path,lower_yuv [Y],lower_yuv [U],lower_yuv [V],upper_yuv [Y],upper_yuv [U],upper_yuv [V],lower_hsv [H],lower_hsv [S],lower_hsv [V],upper_hsv [H],upper_hsv [S],upper_hsv [V]
-test/cluttered_floor_frame320.jpg,0,0,0,164,126,126,32,52,118,255,255,110
-test/cluttered_floor_frame320.jpg,0,0,0,255,149,126,32,70,118,255,255,255
-test/image_raw_2.png,0,0,0,255,149,126,32,70,118,255,255,255
-test/frame272.jpg,0,0,0,255,149,126,32,70,118,255,255,255
-test/frame270.jpg,0,0,0,255,149,126,32,41,107,255,255,255
-test/frame504.jpg,0,0,0,255,124,126,32,38,0,255,255,255
-test/cluttered_floor_frame321.jpg,0,0,0,255,124,126,32,32,0,255,255,255

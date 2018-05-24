@@ -48,7 +48,7 @@ def color_filter(img):
 	filtered_img = cv2.bitwise_and(img, img, mask = mask)
 	return filtered_img
 
-def update_filter(img, filter_index=1,mask_flag=True,use_raw=True, verbose=False):
+def update_filter(img, filter_index=1,mask_flag=True,use_raw=True, verbose=True):
 	# Process the new image
 	if filter_index == 0:
 		res,mask = fut.filter_green(img)

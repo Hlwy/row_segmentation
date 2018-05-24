@@ -228,7 +228,7 @@ def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=True):
 	return out
 
 
-def update_filter(img, filter_index=1,mask_flag=True,use_raw=True, verbose=False):
+def update_filter(img, filter_index=1,mask_flag=True,use_raw=True, verbose=True):
 
 	# Process the new image
 	if filter_index == 0:

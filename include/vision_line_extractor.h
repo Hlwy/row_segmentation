@@ -1,0 +1,7 @@
+#ifndef VISION_LINE_EXTRACTOR_H_
+#define VISION_LINE_EXTRACTOR_H_
+
+
+
+
+#endif // VISION_LINE_EXTRACTOR_H_
