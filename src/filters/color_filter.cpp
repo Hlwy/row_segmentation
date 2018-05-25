@@ -14,11 +14,8 @@ ColorFilter::ColorFilter(ColorSpace cmap){
 	this->set_colorspace(cmap);
 }
 
-cv::Mat ColorFilter::filter_color(const cv::Mat& src, bool show){
+void ColorFilter::filter_color(const cv::Mat& src, bool show){
 	cv::Mat cmap_image, mask, cmap_filtered, result;
-	string lblSrc = "ColorFilter: [" + string(this->_space_desc) + "] Color Spaced Image";
-	string lblMask = "ColorFilter: [" + string(this->_space_desc) + "] Mask";
-	string lblRes = "ColorFilter: [" + string(this->_space_desc) + "] Result";
 
 	// Convert Raw Source Image (BGR) into Target Color Space
 	if(this->_cmap == HSV) cv::cvtColor(src, cmap_image, CV_BGR2HSV);
@@ -37,6 +34,9 @@ cv::Mat ColorFilter::filter_color(const cv::Mat& src, bool show){
 	else if(this->_cmap == BGR) result = src.clone();
 
 	if(show == true){
+		string lblSrc = "ColorFilter: [" + string(this->_lbl) + "] Color Spaced Image";
+		string lblMask = "ColorFilter: [" + string(this->_lbl) + "] Mask";
+		string lblRes = "ColorFilter: [" + string(this->_lbl) + "] Result";
 		cv::namedWindow(lblSrc, CV_WINDOW_NORMAL);
 		cv::imshow(lblSrc,cmap_image);
 		cv::namedWindow(lblMask, CV_WINDOW_NORMAL);
@@ -46,28 +46,25 @@ cv::Mat ColorFilter::filter_color(const cv::Mat& src, bool show){
 	}
 
 	// Store/return important variables
-	this->_mask = mask;
-	this->_filtered = result;
-	return result;
+	this->mask = mask.clone();
+	this->filtered = result.clone();
 }
 
-cv::Mat blur_filtered(int8_t index,bool show){
-	cv::Mat res, blurred;
-	string lblSrc = "ColorFilter: [" + string(this->_space_desc) + "] Un-Modified Image";
-	string lblBlur = "ColorFilter: [" + string(this->_space_desc) + "] Blurred Image";
-
-	// Un-pack inputs
-
+cv::Mat ColorFilter::blur_filtered(const cv::Mat& src, int aperture,bool show){
+	cv::Mat blurred;
+	// Ensure inputs are good
+	if(aperture % 2 == 0) aperture = 3;
 	// Apply Blurring Effects
-
-	if(show == true){
+	cv::medianBlur(src, blurred,aperture);
+	if(show){
+		string lblSrc = "ColorFilter: [" + string(this->_lbl) + "] Un-Modified Image";
+		string lblBlur = "ColorFilter: [" + string(this->_lbl) + "] Blurred Image";
 		cv::namedWindow(lblSrc, CV_WINDOW_NORMAL);
-		cv::imshow(lblSrc,this->_filtered);
+		cv::imshow(lblSrc,this->filtered);
 		cv::namedWindow(lblBlur, CV_WINDOW_NORMAL);
 		cv::imshow(lblBlur,blurred);
 	}
-
-	return _filtered;
+	return blurred;
 }
 
 
@@ -76,20 +73,20 @@ void ColorFilter::set_colorspace(ColorSpace cmap){
 	ColorSpace maps = num_spaces;
 	if(cmap == HSV){
 		this->_cmap = cmap;
-		this->_space_desc = "HSV";
+		this->_lbl = "HSV";
 	}else if(cmap == YUV){
 		this->_cmap = cmap;
-		this->_space_desc = "YUV";
+		this->_lbl = "YUV";
 	}else if(cmap == RGB){
 		this->_cmap = cmap;
-		this->_space_desc = "RGB";
+		this->_lbl = "RGB";
 	}else{
 		this->_cmap = BGR;
-		this->_space_desc = "BGR";
+		this->_lbl = "BGR";
 	}
 }
 
-void ColorFilter::set_upper_limits(int8_t limits[3]){
+void ColorFilter::set_upper_limits(vector<uint8_t> limits,bool verbose){
 	// Check for errorneous limits
 	if(limits[0] > 255) this->_upper_limits[0] = 255;
 	else this->_upper_limits[0] = limits[0];
@@ -99,9 +96,17 @@ void ColorFilter::set_upper_limits(int8_t limits[3]){
 
 	if(limits[2] > 255) this->_upper_limits[2] = 255;
 	else this->_upper_limits[2] = limits[2];
+
+	// Debugging
+	if(verbose == true){
+		cout << yellow << bold << "ColorFilter [set_upper_limits]:" << reset << endl
+		<< yellow << "	Input Limits: " << reset << to_string(limits[0]) << ", " << to_string(limits[1]) << ", " << to_string(limits[2]) << endl
+		<< yellow << "	Set Lower Limits: " << reset << to_string(this->_upper_limits[0]) << ", " << to_string(this->_upper_limits[1]) << ", " << to_string(this->_upper_limits[2]) << endl;
+	}
+
 }
 
-void ColorFilter::set_lower_limits(int8_t limits[3]){
+void ColorFilter::set_lower_limits(vector<uint8_t> limits,bool verbose){
 	// Check for errorneous limits
 	if(limits[0] < 0) this->_lower_limits[0] = 0;
 	else this->_lower_limits[0] = limits[0];
@@ -111,21 +116,42 @@ void ColorFilter::set_lower_limits(int8_t limits[3]){
 
 	if(limits[2] < 0) this->_lower_limits[2] = 0;
 	else this->_lower_limits[2] = limits[2];
+
+	// Debugging
+	if(verbose == true){
+		cout << yellow << bold << "ColorFilter [set_lower_limits]:" << reset << endl
+			<< yellow << "	Input Limits: " << reset << to_string(limits[0]) << ", " << to_string(limits[1]) << ", " << to_string(limits[2]) << endl
+			<< yellow << "	Set Lower Limits: " << reset << to_string(this->_lower_limits[0]) << ", " << to_string(this->_lower_limits[1]) << ", " << to_string(this->_lower_limits[2]) << endl;
+	}
 }
 
 // Get Functions
-vector<int8_t> ColorFilter::get_upper_limits(){return this->_upper_limits;}
-vector<int8_t> ColorFilter::get_lower_limits(){return this->_lower_limits;}
+vector<uint8_t> ColorFilter::get_upper_limits(){return this->_upper_limits;}
+vector<uint8_t> ColorFilter::get_lower_limits(){return this->_lower_limits;}
 
 // Debugging Functions
 void ColorFilter::print_internals(){
 	// Name contractions for easier printing
-	vector<int8_t> ll = this->_lower_limits;
-	vector<int8_t> ul = this->_upper_limits;
+	vector<uint8_t> ll = this->_lower_limits;
+	vector<uint8_t> ul = this->_upper_limits;
 
 	cout << on_magenta << "ColorFilter:" << reset << endl
-		<< "	Color Space Used: " << this->_space_desc << endl
-		<< "	Lower Limits: " << ll[0] << ", " << ll[1] << ", " << ll[2] << endl
-		<< "	Upper Limits: " << ul[0] << ", " << ul[1] << ", " << ul[2]  << endl;
+		<< "	Color Space Used: " << this->_lbl << endl
+		<< "	Lower Limits: " << to_string(ll[0]) << ", " << to_string(ll[1]) << ", " << to_string(ll[2]) << endl
+		<< "	Upper Limits: " << to_string(ul[0]) << ", " << to_string(ul[1]) << ", " << to_string(ul[2])  << endl;
+
+}
+
+// Debugging Functions
+void ColorFilter::print_internals(string label){
+	// Name contractions for easier printing
+	vector<uint8_t> ll = this->_lower_limits;
+	vector<uint8_t> ul = this->_upper_limits;
+
+	cout << on_magenta << label << reset << endl
+		<< "	Color Space Used: " << this->_lbl << endl
+		<< "	Lower Limits: " << to_string(ll[0]) << ", " << to_string(ll[1]) << ", " << to_string(ll[2]) << endl
+		<< "	Upper Limits: " << to_string(ul[0]) << ", " << to_string(ul[1]) << ", " << to_string(ul[2])  << endl;
+
 
 }

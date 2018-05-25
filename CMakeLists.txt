@@ -47,8 +47,8 @@ find_package(GTSAM REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # Find PCL Libraries
-find_package(PCL 1.3 REQUIRED COMPONENTS common io)
-add_definitions(${PCL_DEFINITIONS})
+# find_package(PCL 1.3 REQUIRED COMPONENTS common io)
+# add_definitions(${PCL_DEFINITIONS})
 
 include_directories(
      include

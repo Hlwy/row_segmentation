@@ -4,6 +4,7 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include <vector>
+#include <stdint.h>
 
 using namespace std;
 
@@ -17,15 +18,15 @@ typedef enum ColorSpace{
 
 class ColorFilter{
 private:
-	ColorSpace _cmap;			 // Color space that color filter is operating in
-	string _space_desc;			 // Color Space identifier for debugging
-	const cv::Mat _filtered;		 // Color Filtered Image of source image
-	const cv::Mat _mask;		 // Mask resultanting from color filtering
+	ColorSpace _cmap;	// Color space that color filter is operating in
+	string _lbl;		// Color Space identifier for debugging
 
 	// Upper and Lower Thresholding Limits per channel
-	vector<int8_t> _upper_limits = {255, 255, 255};
-	vector<int8_t> _lower_limits = {0, 0, 0};
+	vector<uint8_t> _upper_limits = {255, 255, 255};
+	vector<uint8_t> _lower_limits = {0, 0, 0};
 public:
+	cv::Mat filtered;	// Color Filtered Image of source image
+	cv::Mat mask;		// Mask resultanting from color filtering
 	/**
 		Class Constructors/Deconstructors and Overloads
 	*/
@@ -36,21 +37,22 @@ public:
 	/**
 		Class Primary Usage Functions
 	*/
-	cv::Mat filter_color(const cv::Mat& src, bool show = false);
-	cv::Mat blur_filtered(int8_t index = 7,bool show = false);
-	cv::Mat morphed_filtered(int8_t kernel_size[2] = {5,5}, bool use_opened = false,bool show = false);
+	void filter_color(const cv::Mat& src, bool show = false);
+	cv::Mat blur_filtered(const cv::Mat& src,int aperture = 7,bool show = false);
+	cv::Mat morphed_filtered(uint8_t kernel_size[2], bool use_opened = false,bool show = false);
 
 	// Set Functions
 	void set_colorspace(ColorSpace cmap);
-	void set_upper_limits(int8_t limits[3]);
-	void set_lower_limits(int8_t limits[3]);
+	void set_upper_limits(vector<uint8_t> limits, bool verbose = false);
+	void set_lower_limits(vector<uint8_t> limits, bool verbose = false);
 
 	// Get Functions
-	vector<int8_t> get_upper_limits();
-	vector<int8_t> get_lower_limits();
+	vector<uint8_t> get_upper_limits();
+	vector<uint8_t> get_lower_limits();
 
 	// Debugging Functions
 	void print_internals();
+	void print_internals(string label);
 };
 
 

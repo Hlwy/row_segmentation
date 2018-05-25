@@ -9,9 +9,12 @@ endif(VERBOSE)
 add_library(colorfilter SHARED filters/color_filter.cpp)
 target_link_libraries(colorfilter ${LIBS})
 
+add_library(filterpipeline SHARED filters/filter_pipeline.cpp)
+target_link_libraries(filterpipeline colorfilter ${LIBS})
+
 # include_directories(${TEST_DIR}/actuators)
 add_executable(process_image process_image.cpp)
-target_link_libraries(process_image colorfilter ${LIBS})
+target_link_libraries(process_image colorfilter filterpipeline ${LIBS})
 
 # include_directories(${INCS_DIR}/actuators actuators)
 
