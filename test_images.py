@@ -42,42 +42,7 @@ def update(img):
 	disp_lines = lut.updateLines(img)
 	cv2.imshow("Modified Lines Found", disp_lines)
 	return disp_lines
-
-def color_filter(img):
-	res,mask = fut.filter_brown(img)
-	filtered_img = cv2.bitwise_and(img, img, mask = mask)
-	return filtered_img
-
-def update_filter(img, filter_index=1,mask_flag=True,use_raw=True, verbose=True):
-	# Process the new image
-	if filter_index == 0:
-		res,mask = fut.filter_green(img)
-	elif filter_index == 1:
-		res,mask = fut.filter_brown(img)
-
-	if mask_flag == True:
-		color_mask = fut.add_green_mask(mask)
-		tmp_color_mask = color_mask
-	else:
-		color_mask = mask
-		tmp_color_mask = cv2.cvtColor(color_mask,cv2.COLOR_GRAY2BGR)
-
-	res2 = cv2.bitwise_and(img, img, mask = mask)
-
-	if use_raw == True:
-		filtered_img = res2
-	else:
-		filtered_img = tmp_color_mask
-
-	if verbose == True:
-		cv2.imshow("Color Filtered Image", res)
-		cv2.imshow("Color Filtered Mask", mask)
-		# cv2.imshow("Final Filtered Mask", res2)
-		cv2.imshow("Final Filtered Image", res2)
-
-	return filtered_img, mask
-
-
+	
 #Run Main
 if __name__ == "__main__" :
 

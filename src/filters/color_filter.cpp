@@ -50,24 +50,6 @@ void ColorFilter::filter_color(const cv::Mat& src, bool show){
 	this->filtered = result.clone();
 }
 
-cv::Mat ColorFilter::blur_filtered(const cv::Mat& src, int aperture,bool show){
-	cv::Mat blurred;
-	// Ensure inputs are good
-	if(aperture % 2 == 0) aperture = 3;
-	// Apply Blurring Effects
-	cv::medianBlur(src, blurred,aperture);
-	if(show){
-		string lblSrc = "ColorFilter: [" + string(this->_lbl) + "] Un-Modified Image";
-		string lblBlur = "ColorFilter: [" + string(this->_lbl) + "] Blurred Image";
-		cv::namedWindow(lblSrc, CV_WINDOW_NORMAL);
-		cv::imshow(lblSrc,this->filtered);
-		cv::namedWindow(lblBlur, CV_WINDOW_NORMAL);
-		cv::imshow(lblBlur,blurred);
-	}
-	return blurred;
-}
-
-
 // Set Functions
 void ColorFilter::set_colorspace(ColorSpace cmap){
 	ColorSpace maps = num_spaces;
@@ -103,7 +85,6 @@ void ColorFilter::set_upper_limits(vector<uint8_t> limits,bool verbose){
 		<< yellow << "	Input Limits: " << reset << to_string(limits[0]) << ", " << to_string(limits[1]) << ", " << to_string(limits[2]) << endl
 		<< yellow << "	Set Lower Limits: " << reset << to_string(this->_upper_limits[0]) << ", " << to_string(this->_upper_limits[1]) << ", " << to_string(this->_upper_limits[2]) << endl;
 	}
-
 }
 
 void ColorFilter::set_lower_limits(vector<uint8_t> limits,bool verbose){
@@ -152,6 +133,5 @@ void ColorFilter::print_internals(string label){
 		<< "	Color Space Used: " << this->_lbl << endl
 		<< "	Lower Limits: " << to_string(ll[0]) << ", " << to_string(ll[1]) << ", " << to_string(ll[2]) << endl
 		<< "	Upper Limits: " << to_string(ul[0]) << ", " << to_string(ul[1]) << ", " << to_string(ul[2])  << endl;
-
 
 }

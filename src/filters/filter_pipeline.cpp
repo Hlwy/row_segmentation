@@ -20,6 +20,57 @@ FilterPipeline::~FilterPipeline(){
 	for(int i = 0; i==this->_ccount;i++){ delete this->filters.at(i); }
 }
 
+cv::Mat FilterPipeline::blur_filtered(const cv::Mat& src, int aperture,bool show){
+	cv::Mat blurred = src.clone();
+	// Ensure inputs are good
+	if(aperture % 2 == 0) aperture = 3;
+	// Apply Blurring Effects
+	cv::medianBlur(src, blurred,aperture);
+	if(show){
+		string lblSrc = "FilterPipeline: Blurring Input Image";
+		string lblBlur = "FilterPipeline: Blurred Image";
+		cv::namedWindow(lblSrc, CV_WINDOW_NORMAL);
+		cv::namedWindow(lblBlur, CV_WINDOW_NORMAL);
+		cv::imshow(lblSrc,src);
+		cv::imshow(lblBlur,blurred);
+	}
+	return blurred;
+}
+
+cv::Mat FilterPipeline::morph_filtered(const cv::Mat& src, uint8_t kernel_size[2], MorphElement shape, MorphType morphing, bool show){
+	cv::Mat element, morphed;
+	cv::Mat clone = src.clone();
+	// Variables to check for input validity
+	MorphElement elems = num_elements;
+	MorphType types = num_types;
+
+	// If invalid morphing type default to Opening
+	if(morphing > num_types) morphing = OPEN;
+	// Ensure a valid structuring element is used, if not use a default
+	if(shape > elems){
+		shape = RECTANGLE;
+		element = cv::getStructuringElement(shape, cv::Size(kernel_size[0], kernel_size[1]));
+	}else element = cv::getStructuringElement(shape, cv::Size(kernel_size[0], kernel_size[1]));
+
+	// Perform Morphological Transformation
+	if(morphing == OPEN) cv::morphologyEx(clone, morphed, cv::MORPH_OPEN, element);
+	else if(morphing == CLOSE) cv::morphologyEx(clone, morphed, cv::MORPH_CLOSE, element);
+	else if(morphing == ERODE) cv::erode(clone, morphed, element);
+	else if(morphing == DILATE) cv::dilate(clone, morphed, element);
+	else morphed = clone;
+
+	if(show){
+		string lblSrc = "FilterPipeline: Morphing Input Image";
+		string lblMorph = "FilterPipeline: Morphed Image";
+		cv::namedWindow(lblSrc, CV_WINDOW_NORMAL);
+		cv::namedWindow(lblMorph, CV_WINDOW_NORMAL);
+		cv::imshow(lblSrc,clone);
+		cv::imshow(lblMorph,morphed);
+	}
+	return morphed;
+}
+
+
 // Set Functions
 void FilterPipeline::add_color_filter(ColorSpace cmap, umat limits, bool verbose){
 	// Initialize an empty ColorFilter Object to be loaded with parameters
@@ -80,37 +131,38 @@ void FilterPipeline::set_color_filter_limits(int index, umat limits, bool verbos
 *		Filter out specific colors from source image
 * --------------------------------------------------------- */
 cv::Mat FilterPipeline::filter_image(const cv::Mat& src, bool show){
-	cv::Mat tmp, mask, result, combined_mask;
+	cv::Mat tmp, mask, filtered, result, combined_mask;
 	vector<cv::Mat> tmps;
 	vector<cv::Mat> masks;
+	uint8_t ksize[] = {5,5};
 
 	// TODO: Dynamically handle stored ColorFilter's
 	ColorFilter* yuv = this->filters.at(0);
 	ColorFilter* hsv = this->filters.at(1);
 
 	// Filter: YUV Color space
-	yuv->filter_color(src,show);
+	yuv->filter_color(src);
 	tmps.push_back(yuv->filtered);
 	masks.push_back(yuv->mask);
 
 	// Filter: HSV Color space
-	hsv->filter_color(src,show);
+	hsv->filter_color(src);
 	tmps.push_back(hsv->filtered);
 	masks.push_back(hsv->mask);
 
 	/** NOTE:
-	*		Original python implementation of this used thresholding of the
-	*	masks before combining them, like so:
+	*		Original python implementation of row_segmentation used
+	*	thresholding of the masks before combining them, like so:
 	*
 	*	_, mask_hsv = cv2.threshold(mask_hsv, 10, 255, cv2.THRESH_BINARY)
 	*	res_hsv = cv2.bitwise_and(tmp, tmp, mask = mask_hsv)
 	*
-	*	Not sureif this has any significant effect. POSSIBLY LOOK INTO LATER.
+	*	Not sure if this has any significant effect. POSSIBLY LOOK INTO LATER.
 	*/
-	int nImgs = 2;
+	int nCspaces = 2;
 
 	// Combined the two filtered masks
-	for(int i = 0; i<nImgs-1;i++){
+	for(int i = 0; i<nCspaces-1;i++){
 		cout << "Combined Filter Masks: " << i << endl;
 		// If just starting create the first instance of the combined filter mask
 		if(i == 0){
@@ -120,47 +172,33 @@ cv::Mat FilterPipeline::filter_image(const cv::Mat& src, bool show){
 	}
 
 	// Apply combined mask to source image
- 	cv::bitwise_and(src, src, result, combined_mask);
+ 	cv::bitwise_and(src, src, filtered, combined_mask);
 
-	/** -------------------------------------------------------------------
-	*		Apply Morphological Transforms on color filtered image
-	* --------------------------------------------------------------------- */
-	// def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=True):
-	// 	if shape == 0:
-	// 		kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(int(ks[0]),int(ks[1])))
-	// 	elif shape == 1:
-	// 		kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(int(ks[0]),int(ks[1])))
-	// 	else:
-	// 		print("alternative structures here...")
-	//
-	// 	blurred = cv2.medianBlur(_img, 7)
-	// 	opening = cv2.morphologyEx(blurred,cv2.MORPH_OPEN,kernel)
-	// 	closing = cv2.morphologyEx(blurred,cv2.MORPH_CLOSE,kernel)
-	// 	if flag_show == True:
-	// 		cv2.imshow('Before Morphing',_img)
-	// 		# cv2.imshow('Blurred',blurred)
-	// 		cv2.imshow('opened',opening)
-	// 		cv2.imshow('closed',closing)
-	//
-	// 	if flag_open == True:
-	// 		out = opening
-	// 	else:
-	// 		out = closing
-	// 	return out
+	// Blur the Resultant image
+	cv::Mat blurred = this->blur_filtered(filtered);
+
+	// Apply morphological transformations. TODO: Look into various combinations?
+	cv::Mat morphed = this->morph_filtered(blurred,ksize,ELLIPSE,DILATE);
 
 	if(show){
 		string lblSrc = "FilterPipeline: Source Image";
 		string lblMask = "FilterPipeline: Combined Mask";
-		string lblRes = "FilterPipeline: Result";
+		string lblRes = "FilterPipeline: Color Filtered";
+		string lblBlur = "FilterPipeline: Blurred";
+		string lblMorph = "FilterPipeline: Morphed";
 		cv::namedWindow(lblSrc, CV_WINDOW_NORMAL);
-		cv::imshow(lblSrc,src);
 		cv::namedWindow(lblMask, CV_WINDOW_NORMAL);
-		cv::imshow(lblMask,combined_mask);
 		cv::namedWindow(lblRes, CV_WINDOW_NORMAL);
-		cv::imshow(lblRes,result);
+		cv::namedWindow(lblBlur, CV_WINDOW_NORMAL);
+		cv::namedWindow(lblMorph, CV_WINDOW_NORMAL);
+		cv::imshow(lblSrc,src);
+		cv::imshow(lblMask,combined_mask);
+		cv::imshow(lblRes,filtered);
+		cv::imshow(lblBlur,blurred);
+		cv::imshow(lblMorph,morphed);
 	}
 
-	return result;
+	return morphed;
 }
 
 

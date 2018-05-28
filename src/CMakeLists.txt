@@ -1,20 +1,23 @@
 cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "-Wno-write-strings")
-
+set(CMAKE_CXX_FLAGS "  ${CMAKE_CXX_FLAGS} -std=c++11 -O3 -fopenmp")
 if(VERBOSE)
 message(STATUS "------ BUILDING SOURCE FILES")
 endif(VERBOSE)
 
+include_directories(${INC_DIR}/rtl)
 add_library(colorfilter SHARED filters/color_filter.cpp)
 target_link_libraries(colorfilter ${LIBS})
 
 add_library(filterpipeline SHARED filters/filter_pipeline.cpp)
 target_link_libraries(filterpipeline colorfilter ${LIBS})
 
-# include_directories(${TEST_DIR}/actuators)
+add_library(ransaclinefitter SHARED algorithms/ransaclinefitter.cpp)
+target_link_libraries(ransaclinefitter ${LIBS})
+
 add_executable(process_image process_image.cpp)
-target_link_libraries(process_image colorfilter filterpipeline ${LIBS})
+target_link_libraries(process_image colorfilter filterpipeline ransaclinefitter ${LIBS})
 
 # include_directories(${INCS_DIR}/actuators actuators)
 

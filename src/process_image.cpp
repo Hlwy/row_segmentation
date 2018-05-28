@@ -4,6 +4,7 @@
 
 #include "filters/color_filter.h"
 #include "filters/filter_pipeline.h"
+#include "algorithms/ransaclinefitter.h"
 
 using namespace std;
 using namespace arma;
@@ -30,7 +31,8 @@ int main(int argc, char** argv){
 		<< 32 << 52 << 0 << 107 << 255 << 255 << endr;
 
 	// OS Variables
-	char* default_img_path = "/home/hunter/data/training_raw/early_season/1/frames/frame1.jpg";
+	// char* default_img_path = "/home/hunter/data/training_raw/early_season/1/frames/frame1.jpg";
+	char* default_img_path = "/home/hunter/data/segmentation/farm/testing/11.jpg";
 	char* img_path;
 	// Labels
 	string source_window = "Source Image";
@@ -39,6 +41,7 @@ int main(int argc, char** argv){
 	cv::Mat src;		// Raw, Unknown Sized, Source Image (BGR Color Space)
 	cv::Mat ssrc; 		// Raw Source Image resized to defined size standard
 	cv::Mat cfilled; 	// Image resulting from combined color filter pre-processing
+	cv::Mat grey;
 
 	// Command-line Parsing
 	if(argc < 2){
@@ -49,6 +52,7 @@ int main(int argc, char** argv){
 
 	// Object Declarations
 	FilterPipeline pipe(spaces,lims);
+	RansacLineFitter fitter;
 
 	// Load an image
 	src = cv::imread(img_path,1);
@@ -61,12 +65,11 @@ int main(int argc, char** argv){
 		cv::resize(src,ssrc,cv::Size(w,h));
 	}
 
-	pipe.filter_image(ssrc,true);
+	cv::Mat filtered = pipe.filter_image(ssrc);
 
-
-	// Show Image
-	// cv::namedWindow(source_window, CV_WINDOW_NORMAL);
-	// cv::imshow(source_window, src);
+	fitter.grab_image(filtered);
+	// fitter.find_line();
+	// fitter.update();
 	// Wait until user exits the program
 	cv::waitKey(0);
 

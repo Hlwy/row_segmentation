@@ -46,9 +46,17 @@ find_package(GTSAM REQUIRED)
 # Find OpenCV libraries
 find_package(OpenCV REQUIRED)
 
+# OpenMP
+FIND_PACKAGE(OpenMP)
+IF(OPENMP_FOUND)
+  SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+  MESSAGE(STATUS "Found OpenMP")
+ENDIF()
+
 # Find PCL Libraries
-# find_package(PCL 1.3 REQUIRED COMPONENTS common io)
-# add_definitions(${PCL_DEFINITIONS})
+find_package(PCL REQUIRED)
+add_definitions(${PCL_DEFINITIONS})
 
 include_directories(
      include
@@ -59,9 +67,10 @@ include_directories(
      ${ARMADILLO_INCLUDE_DIRS}
      ${GTSAM_INCLUDE_DIR}
      ${OpenCV_INCLUDE_DIRS}
-	# ${PCL_INCLUDE_DIRS}
-	# ${PCL_LIBRARY_DIRS}
+	${PCL_INCLUDE_DIRS}
 )
+
+link_directories(${PCL_LIBRARY_DIRS})
 
 set(LIBS
      gtsam
@@ -72,8 +81,7 @@ set(LIBS
      ${BLAS_LIBRARIES}
      ${OpenCV_LIBS}
      ${CMAKE_THREAD_LIBS_INIT}
-	# ${PCL_COMMON_LIBRARIES}
-	# ${PCL_IO_LIBRARIES}
+	${PCL_LIBRARIES}
 )
 
 # ===========================

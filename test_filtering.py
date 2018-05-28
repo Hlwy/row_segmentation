@@ -45,7 +45,7 @@ def update(img):
 	start = time()
 
 	# blurred = cv2.medianBlur(tmp, 7)
-	# grey = cv2.cvtColor(blurred,cv2.COLOR_BGR2GRAY)
+	grey = cv2.cvtColor(blurred,cv2.COLOR_BGR2GRAY)
 	# # _, mask = cv2.threshold(grey, 10, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
 	# # mask = fut.apply_morph(mask, ks=[10,7], flag_open=True)
 	# # resr = cv2.bitwise_and(tmp, tmp, mask = mask)

@@ -215,11 +215,16 @@ def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=True):
 	blurred = cv2.medianBlur(_img, 7)
 	opening = cv2.morphologyEx(blurred,cv2.MORPH_OPEN,kernel)
 	closing = cv2.morphologyEx(blurred,cv2.MORPH_CLOSE,kernel)
+	dilation = cv2.dilate(blurred,kernel,iterations = 1)
+	erosion = cv2.erode(blurred,kernel,iterations = 1)
+
 	if flag_show == True:
 		cv2.imshow('Before Morphing',_img)
-		# cv2.imshow('Blurred',blurred)
+		cv2.imshow('Blurred',blurred)
 		cv2.imshow('opened',opening)
 		cv2.imshow('closed',closing)
+		cv2.imshow('dilation',dilation)
+		cv2.imshow('erosion',erosion)
 
 	if flag_open == True:
 		out = opening

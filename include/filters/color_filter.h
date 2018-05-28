@@ -38,8 +38,6 @@ public:
 		Class Primary Usage Functions
 	*/
 	void filter_color(const cv::Mat& src, bool show = false);
-	cv::Mat blur_filtered(const cv::Mat& src,int aperture = 7,bool show = false);
-	cv::Mat morphed_filtered(uint8_t kernel_size[2], bool use_opened = false,bool show = false);
 
 	// Set Functions
 	void set_colorspace(ColorSpace cmap);
