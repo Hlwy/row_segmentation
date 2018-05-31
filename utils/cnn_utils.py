@@ -251,23 +251,23 @@ def gen_nvidia_cnn_model():
 	model.add(Lambda(lambda x: x / 127.5 - 1.0, input_shape=(64, 64, 3)))
 
 	# starts with five convolutional and maxpooling layers
-	model.add(Convolution2D(24, 5, 5, border_mode='same', subsample=(2, 2)))
+	model.add(Convolution2D(24, (5, 5), strides=(2, 2), padding='same'))
 	model.add(Activation(activation_relu))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
 
-	model.add(Convolution2D(36, 5, 5, border_mode='same', subsample=(2, 2)))
+	model.add(Convolution2D(36, (5, 5), strides=(2, 2), padding='same'))
 	model.add(Activation(activation_relu))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
 
-	model.add(Convolution2D(48, 5, 5, border_mode='same', subsample=(2, 2)))
+	model.add(Convolution2D(48, (5, 5), strides=(2, 2), padding='same'))
 	model.add(Activation(activation_relu))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
 
-	model.add(Convolution2D(64, 3, 3, border_mode='same', subsample=(1, 1)))
+	model.add(Convolution2D(64, (3, 3), strides=(1, 1), padding='same'))
 	model.add(Activation(activation_relu))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
 
-	model.add(Convolution2D(64, 3, 3, border_mode='same', subsample=(1, 1)))
+	model.add(Convolution2D(64, (3, 3), strides=(1, 1), padding='same'))
 	model.add(Activation(activation_relu))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
 
@@ -291,7 +291,57 @@ def gen_nvidia_cnn_model():
 	model.summary()
 	return model
 
-def create_model(hd5Path):
+def gen_nvidia_cnn_model_hsv():
+	activation_relu = 'relu'
+
+	# Our model is based on NVIDIA's "End to End Learning for Self-Driving Cars" paper
+	# Source:  https://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf
+	model = Sequential()
+
+	model.add(Lambda(lambda x: x / 127.5 - 1.0, input_shape=(64, 64, 3)))
+
+	# starts with five convolutional and maxpooling layers
+	model.add(Convolution2D(24, (5, 5), strides=(2, 2), padding='same'))
+	model.add(Activation(activation_relu))
+	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
+
+	model.add(Convolution2D(36, (5, 5), strides=(2, 2), padding='same'))
+	model.add(Activation(activation_relu))
+	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
+
+	model.add(Convolution2D(48, (5, 5), strides=(2, 2), padding='same'))
+	model.add(Activation(activation_relu))
+	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
+
+	model.add(Convolution2D(64, (3, 3), strides=(1, 1), padding='same'))
+	model.add(Activation(activation_relu))
+	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
+
+	model.add(Convolution2D(64, (3, 3), strides=(1, 1), padding='same'))
+	model.add(Activation(activation_relu))
+	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
+
+	model.add(Flatten())
+
+	# Next, five fully connected layers
+	model.add(Dense(1164))
+	model.add(Activation(activation_relu))
+
+	model.add(Dense(100))
+	model.add(Activation(activation_relu))
+
+	model.add(Dense(50))
+	model.add(Activation(activation_relu))
+
+	model.add(Dense(10))
+	model.add(Activation(activation_relu))
+
+	model.add(Dense(12))
+
+	model.summary()
+	return model
+
+def create_model_lines(hd5Path):
 	activation_relu = 'relu'
 
 	model = Sequential()
@@ -299,23 +349,23 @@ def create_model(hd5Path):
 	model.add(Lambda(lambda x: x / 127.5 - 1.0, input_shape=(64, 64, 3)))
 
 	# starts with five convolutional and maxpooling layers
-	model.add(Convolution2D(24, 5, 5, border_mode='same', subsample=(2, 2)))
+	model.add(Convolution2D(24, (5, 5), strides=(2, 2), padding='same'))
 	model.add(Activation(activation_relu))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
 
-	model.add(Convolution2D(36, 5, 5, border_mode='same', subsample=(2, 2)))
+	model.add(Convolution2D(36, (5, 5), strides=(2, 2), padding='same'))
 	model.add(Activation(activation_relu))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
 
-	model.add(Convolution2D(48, 5, 5, border_mode='same', subsample=(2, 2)))
+	model.add(Convolution2D(48, (5, 5), strides=(2, 2), padding='same'))
 	model.add(Activation(activation_relu))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
 
-	model.add(Convolution2D(64, 3, 3, border_mode='same', subsample=(1, 1)))
+	model.add(Convolution2D(64, (3, 3), strides=(1, 1), padding='same'))
 	model.add(Activation(activation_relu))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
 
-	model.add(Convolution2D(64, 3, 3, border_mode='same', subsample=(1, 1)))
+	model.add(Convolution2D(64, (3, 3), strides=(1, 1), padding='same'))
 	model.add(Activation(activation_relu))
 	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
 
@@ -342,6 +392,57 @@ def create_model(hd5Path):
 
 	return model
 
+def create_model_hsv(hd5Path):
+	activation_relu = 'relu'
+
+	model = Sequential()
+
+	model.add(Lambda(lambda x: x / 127.5 - 1.0, input_shape=(64, 64, 3)))
+
+	# starts with five convolutional and maxpooling layers
+	model.add(Convolution2D(24, (5, 5), strides=(2, 2), padding='same'))
+	model.add(Activation(activation_relu))
+	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
+
+	model.add(Convolution2D(36, (5, 5), strides=(2, 2), padding='same'))
+	model.add(Activation(activation_relu))
+	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
+
+	model.add(Convolution2D(48, (5, 5), strides=(2, 2), padding='same'))
+	model.add(Activation(activation_relu))
+	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
+
+	model.add(Convolution2D(64, (3, 3), strides=(1, 1), padding='same'))
+	model.add(Activation(activation_relu))
+	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
+
+	model.add(Convolution2D(64, (3, 3), strides=(1, 1), padding='same'))
+	model.add(Activation(activation_relu))
+	model.add(MaxPooling2D(pool_size=(2, 2), strides=(1, 1)))
+
+	model.add(Flatten())
+
+	# Next, five fully connected layers
+	model.add(Dense(1164))
+	model.add(Activation(activation_relu))
+
+	model.add(Dense(100))
+	model.add(Activation(activation_relu))
+
+	model.add(Dense(50))
+	model.add(Activation(activation_relu))
+
+	model.add(Dense(10))
+	model.add(Activation(activation_relu))
+
+	model.add(Dense(12))
+
+	model.compile(optimizer='adam', loss='mse')
+
+	model.load_weights(hd5Path)
+
+	return model
+
 def import_ground_truth_log(_log_path):
 
 	ground_truth = []
@@ -361,6 +462,33 @@ def import_ground_truth_log(_log_path):
 	# print(ground_truth)
 	return ground_truth
 
+def import_ground_truth_log_hsv(_log_path):
+
+	ground_truth = []
+	data = pd.read_csv(_log_path)
+	nData = len(data)
+	# rnd_indices = np.random.randint(0, num_of_img, batch_size)
+
+	# for index in rnd_indices:
+	for index in range(nData):
+		img = data.iloc[index]['image'].strip()
+		lyuvy = data.iloc[index]['lower_yuv_y']
+		lyuvu = data.iloc[index]['lower_yuv_u']
+		lyuvv = data.iloc[index]['lower_yuv_v']
+		uyuvy = data.iloc[index]['upper_yuv_y']
+		uyuvu = data.iloc[index]['upper_yuv_u']
+		uyuvv = data.iloc[index]['upper_yuv_v']
+		lhsvh = data.iloc[index]['lower_hsv_h']
+		lhsvs = data.iloc[index]['lower_hsv_s']
+		lhsvv = data.iloc[index]['lower_hsv_v']
+		uhsvh = data.iloc[index]['upper_hsv_h']
+		uhsvs = data.iloc[index]['upper_hsv_s']
+		uhsvv = data.iloc[index]['upper_hsv_v']
+		ground_truth.append((img, lyuvy, lyuvu, lyuvv, uyuvy, uyuvu, uyuvv, lhsvh, lhsvs, lhsvv, uhsvh, uhsvs, uhsvv))
+
+	# print(ground_truth)
+	return ground_truth
+
 def extract_ground_truth_log(_log_path):
 	while True:
 		X_batch = []
@@ -371,6 +499,23 @@ def extract_ground_truth_log(_log_path):
 			# raw_image = plt.imread(img_file)
 			raw_image = cv2.imread(img_file)
 			targets = [mLeft, bLeft, mRight,bRight]
+			new_image = resize(raw_image, (64, 64))
+			X_batch.append(new_image)
+			y_batch.append(targets)
+
+
+		yield np.array(X_batch), np.array(y_batch)
+
+def extract_ground_truth_log_hsv(_log_path):
+	while True:
+		X_batch = []
+		y_batch = []
+		ground_truth = import_ground_truth_log_hsv(_log_path)
+
+		for img_file, lyuvy, lyuvu, lyuvv, uyuvy, uyuvu, uyuvv, lhsvh, lhsvs, lhsvv, uhsvh, uhsvs, uhsvv in ground_truth:
+			# raw_image = plt.imread(img_file)
+			raw_image = cv2.imread(img_file)
+			targets = [lyuvy, lyuvu, lyuvv, uyuvy, uyuvu, uyuvv, lhsvh, lhsvs, lhsvv, uhsvh, uhsvs, uhsvv]
 			new_image = resize(raw_image, (64, 64))
 			X_batch.append(new_image)
 			y_batch.append(targets)

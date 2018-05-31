@@ -35,117 +35,34 @@ from utils import utils as ut
 from utils import filter_utils as fut
 from utils import seg_utils as sut
 from utils import line_utils as lut
+from utils import cnn_utils as helper
+# import tensorflow as tf
+from keras.optimizers import Adam
 
-def update(img):
-	global plt
+def update(model,img):
 	_img = cv2.resize(img, (640,480))
 	tmp = np.copy(_img)
 
-	# duration = 0
-	start = time()
+	image_array = np.asarray(tmp)
 
-	# blurred = cv2.medianBlur(tmp, 7)
-	grey = cv2.cvtColor(blurred,cv2.COLOR_BGR2GRAY)
-	# # _, mask = cv2.threshold(grey, 10, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-	# # mask = fut.apply_morph(mask, ks=[10,7], flag_open=True)
-	# # resr = cv2.bitwise_and(tmp, tmp, mask = mask)
-	# resr = blurred
-	#
-	# # co = color_filter(tmp)
-	#
-	# Z = resr.reshape((-1,3))
-	# Z = np.float32(Z)
-	#
-	# # define criteria, number of clusters(K) and apply kmeans()
-	# criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-	# K = 2
-	# ret,label,center=cv2.kmeans(Z,K,None,criteria,10,cv2.KMEANS_RANDOM_CENTERS)
-	#
-	# # Now convert back into uint8, and make original image
-	# center = np.uint8(center)
-	# res = center[label.flatten()]
-	# res2 = res.reshape((resr.shape))
-	# cv2.imshow('res2',res2)
+	# image_array = helper.crop(image_array, 0.35, 0.1)
+	image_array = helper.resize(image_array, new_dim=(64, 64))
+
+	transformed_image_array = image_array[None, :, :, :]
+	outputs = np.float32(model.predict(transformed_image_array))
+	print(outputs)
+	print(outputs[0][1])
+
+	_, comp_mask = fut.filter_custom(tmp, outputs)
+	# filtered_img = cv2.bitwise_and(tmp, tmp, mask = mask)
+
 
 	# fut.filter_custom(tmp)
+	# horizon_present = sut.is_horizon_present(_img)
+	# filtered_img,_ = update_filter(_img)
 
-	horizon_present = sut.is_horizon_present(_img)
-	filtered_img,_ = update_filter(_img)
-	# filtered_img = color_filter(_img)
-	# # Thresholding
-	# grey = cv2.cvtColor(filtered_img,cv2.COLOR_BGR2GRAY)
-	# _, mask = cv2.threshold(grey, 10, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
-	# mask = fut.apply_morph(mask, ks=[10,7], flag_open=True)
-	# res = cv2.bitwise_and(filtered_img, filtered_img, mask = mask)
-	cv2.imshow("mask",filtered_img)
-	# cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
-	# cnts = cnts[0] if imutils.is_cv2() else cnts[1]
-	# print("	"+ str(len(cnts)) + " contours")
-	#
-	# # cv2.drawContours(filtered_img, [cnts[20]], -1, (0, 255, 0), 2)
-	# # cv2.imshow("Image", filtered_img)
-	#
-	# for c in cnts:
-	# 	# compute the center of the contour
-	# 	M = cv2.moments(c)
-	# 	try:
-	# 		cX = int(M["m10"] / M["m00"])
-	# 		cY = int(M["m01"] / M["m00"])
-	# 		cv2.circle(filtered_img, (cX, cY), 7, (255, 255, 255), -1)
-	# 		cv2.putText(filtered_img, "center", (cX - 20, cY - 20),
-	# 			cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-	# 	except:
-	# 		pass
-	#
-	# 	# draw the contour and center of the shape on the image
-	# 	cv2.drawContours(filtered_img, [c], -1, (0, 255, 0), 2)
-	#
-	# 	# show the image
-	# 	cv2.imshow("Image", filtered_img)
-
-	# duration = time() - start
-	# print("Processing Duration: " + str(duration))
-
-	# cv2.imshow("Filtered Image", filtered_img)
-
-
-def color_filter(img):
-	# res,mask = fut.filter_brown(img)
-	res,mask = fut.filter_green(img)
-	filtered_img = cv2.bitwise_and(img, img, mask = mask)
-	return filtered_img
-
-def update_filter(img, verbose=False):
-	global filter_index, mask_flag, use_raw
-
-	# Process the new image
-	if filter_index == 0:
-		res,mask = fut.filter_green(img)
-	elif filter_index == 1:
-		res,mask = fut.filter_brown(img)
-
-	if mask_flag == True:
-		color_mask = fut.add_green_mask(mask)
-		tmp_color_mask = color_mask
-	else:
-		color_mask = mask
-		tmp_color_mask = cv2.cvtColor(color_mask,cv2.COLOR_GRAY2BGR)
-
-	res2 = cv2.bitwise_and(img, img, mask = mask)
-
-	if use_raw == True:
-		filtered_img = res2
-	else:
-		filtered_img = tmp_color_mask
-
-	if verbose == True:
-		cv2.imshow("Color Filtered Image", res)
-		cv2.imshow("Color Filtered Mask", mask)
-		# cv2.imshow("Final Filtered Mask", res2)
-		cv2.imshow("Final Filtered Image", res2)
-
-	return filtered_img, mask
-
+	# cv2.imshow("mask",filtered_img)
+	return tmp
 
 #Run Main
 if __name__ == "__main__" :
@@ -181,6 +98,10 @@ if __name__ == "__main__" :
 	use_raw = True
 	flag_play = False
 
+	model = helper.create_model_hsv("models/hsv/test_2/model.h5")
+	model._make_predict_function()
+	# graph = tf.get_default_graph()
+
 	while True:
 
 		key = cv2.waitKey(5) & 0xFF
@@ -192,7 +113,7 @@ if __name__ == "__main__" :
 			print('Next Image...')
 			new_img = np.copy(_imgs[i])
 			clone = cv2.resize(new_img, (640,480))
-			post_img = update(new_img)
+			post_img = update(model,new_img)
 
 		if key == ord('o'):
 			i = i - 1
@@ -201,7 +122,7 @@ if __name__ == "__main__" :
 			print('Previous Image...')
 			new_img = np.copy(_imgs[i])
 			clone = cv2.resize(new_img, (640,480))
-			post_img = update(new_img)
+			post_img = update(model,new_img)
 
 		# Parse the user-input
 		if key == ord(' '):

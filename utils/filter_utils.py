@@ -117,61 +117,24 @@ def filter_out_brown(_img, use_test=True):
 
 	return res, comp_mask
 
-def filter_custom(_img, verbose=True,plot_histograms=False):
+def filter_custom(_img, limits, verbose=True,plot_histograms=False):
 	tmp = cv2.resize(_img, (640,480))
 	hsv = cv2.cvtColor(tmp,cv2.COLOR_BGR2HSV)
 	yuv = cv2.cvtColor(tmp,cv2.COLOR_BGR2YUV)
 
 	h, w, c = tmp.shape
 
-	rows_yuv = yuv[(31*h)//32:,:]
-	rows_hsv = hsv[(31*h)//32:,:]
+	lower_yuv = np.array([int(limits[0][0]),int(limits[0][1]),int(limits[0][2])])
+	upper_yuv = np.array([int(limits[0][3]),int(limits[0][4]),int(limits[0][5])])
 
-	hist_yuv = np.sum(rows_yuv, axis=1)//rows_yuv.shape[1]
-	imax_yuv = np.argmax(hist_yuv, axis=0)
-	imin_yuv = np.argmin(hist_yuv, axis=0)
-
-	hist_hsv = np.sum(rows_hsv, axis=1)//rows_hsv.shape[1]
-	imax_hsv = np.argmax(hist_hsv, axis=0)
-	imin_hsv = np.argmin(hist_hsv, axis=0)
-
-	# if verbose == True:
-	# 	print("	Max Index YUV: " + str(imax_yuv))
-	# 	print("	Min Index YUV: " + str(imin_yuv))
-	# 	print("	Max Index HSV: " + str(imax_hsv))
-	# 	print("	Min Index HSV: " + str(imin_hsv))
-
-	upper_yuv = np.array([int(hist_yuv[imax_yuv[0],0]),int(hist_yuv[imax_yuv[1],1]),int(hist_yuv[imax_yuv[2],2])])
-	lower_yuv = np.array([int(hist_yuv[imin_yuv[0],0]),int(hist_yuv[imin_yuv[1],1]),int(hist_yuv[imin_yuv[2],2])])
-
-	upper_yuv = np.array([int(hist_yuv[imin_yuv[0],0]),int(hist_yuv[imin_yuv[1],1]),int(hist_yuv[imin_yuv[2],2])])
-	lower_yuv = np.array([0, 0, 0])
-
-	upper_hsv = np.array([int(hist_hsv[imax_hsv[0],0]),int(hist_hsv[imax_hsv[1],1]),int(hist_hsv[imax_hsv[2],2])])
-	lower_hsv = np.array([int(hist_hsv[imin_hsv[0],0]),int(hist_hsv[imin_hsv[1],1]),int(hist_hsv[imin_hsv[2],2])])
-
-	upper_hsv = np.array([255, 255, 164])
+	lower_hsv = np.array([int(limits[0][6]),int(limits[0][7]),int(limits[0][8])])
+	upper_hsv = np.array([int(limits[0][9]),int(limits[0][10]),int(limits[0][11])])
 
 	if verbose == True:
 		print("	Upper YUV: " + str(upper_yuv))
 		print("	Lower YUV: " + str(lower_yuv))
 		print("	Upper HSV: " + str(upper_hsv))
 		print("	Lower HSV: " + str(lower_hsv))
-
-	if plot_histograms == True:
-		plt.figure(6)
-		plt.clf()
-		plt.subplot(1,2,1)
-		plt.title("Histogram: Bottom portion of YUV image")
-		plt.plot(range(hist_yuv.shape[0]), hist_yuv[:,0])
-		plt.plot(range(hist_yuv.shape[0]), hist_yuv[:,1])
-		plt.plot(range(hist_yuv.shape[0]), hist_yuv[:,2])
-		plt.subplot(1,2,2)
-		plt.title("Histogram: Bottom portion of HSV image")
-		plt.plot(range(hist_hsv.shape[0]), hist_hsv[:,0])
-		plt.plot(range(hist_hsv.shape[0]), hist_hsv[:,1])
-		plt.plot(range(hist_hsv.shape[0]), hist_hsv[:,2])
-
 
 	mask_yuv = cv2.inRange(yuv, lower_yuv, upper_yuv)
 	_, mask_yuv = cv2.threshold(mask_yuv, 10, 255, cv2.THRESH_BINARY)
@@ -193,7 +156,7 @@ def filter_custom(_img, verbose=True,plot_histograms=False):
 	_, comp_mask = cv2.threshold(comp_mask, 10, 255, cv2.THRESH_BINARY)
 	res = cv2.bitwise_and(tmp, tmp, mask = comp_mask)
 	cv2.imshow("Resultant", res)
-	# return res, comp_mask
+	return res, comp_mask
 
 def add_green_mask(white_mask):
 	_mask = cv2.cvtColor(white_mask,cv2.COLOR_GRAY2BGR)
@@ -215,16 +178,11 @@ def apply_morph(_img, ks=[5,5], shape=0, flag_open=False, flag_show=True):
 	blurred = cv2.medianBlur(_img, 7)
 	opening = cv2.morphologyEx(blurred,cv2.MORPH_OPEN,kernel)
 	closing = cv2.morphologyEx(blurred,cv2.MORPH_CLOSE,kernel)
-	dilation = cv2.dilate(blurred,kernel,iterations = 1)
-	erosion = cv2.erode(blurred,kernel,iterations = 1)
-
 	if flag_show == True:
 		cv2.imshow('Before Morphing',_img)
-		cv2.imshow('Blurred',blurred)
+		# cv2.imshow('Blurred',blurred)
 		cv2.imshow('opened',opening)
 		cv2.imshow('closed',closing)
-		cv2.imshow('dilation',dilation)
-		cv2.imshow('erosion',erosion)
 
 	if flag_open == True:
 		out = opening
